@@ -17,8 +17,8 @@ const Newsletter = () => {
     // Simulate API call
     setTimeout(() => {
       toast({
-        title: "Thank you for subscribing!",
-        description: "You'll receive updates about Atlas soon."
+        title: "Welcome to Nemory!",
+        description: "Check your email for your free trial access."
       });
       setEmail("");
       setIsSubmitting(false);
@@ -30,13 +30,13 @@ const Newsletter = () => {
           <div className="flex items-center gap-4 mb-6">
             <div className="pulse-chip">
               <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-pulse-500 text-white mr-2">05</span>
-              <span>Newsletter</span>
+              <span>Get Started</span>
             </div>
           </div>
           
-          <h2 className="text-5xl font-display font-bold mb-4 text-left">Subscribe to the newsletter</h2>
+          <h2 className="text-5xl font-display font-bold mb-4 text-left">Start Your Free Trial</h2>
           <p className="text-xl text-gray-700 mb-10 text-left">
-            Be first to hear about breakthroughs, partnerships, and deployment opportunities
+            Transform your Notion notes into actionable insights. Join thousands using Nemory to implement their knowledge.
           </p>
           
           <form onSubmit={handleSubmit} className="flex flex-col md:flex-row gap-4 items-start md:items-center">
@@ -44,7 +44,7 @@ const Newsletter = () => {
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email address" className="w-full px-6 py-4 rounded-full border border-gray-200 focus:outline-none focus:ring-2 focus:ring-pulse-500 text-gray-700" required />
             </div>
             <button type="submit" disabled={isSubmitting} className="bg-pulse-500 hover:bg-pulse-600 text-white font-medium py-4 px-10 rounded-full transition-all duration-300 md:ml-4">
-              {isSubmitting ? "Submitting..." : "Submit"}
+              {isSubmitting ? "Starting..." : "Start Free Trial"}
             </button>
           </form>
         </div>

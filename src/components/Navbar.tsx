@@ -45,21 +45,22 @@ const Navbar = () => {
       )}
     >
       <div className="container flex items-center justify-between px-4 sm:px-6 lg:px-8">
-        <a 
-          href="#" 
-          className="flex items-center space-x-2"
-          onClick={(e) => {
-            e.preventDefault();
-            scrollToTop();
-          }}
-          aria-label="Pulse Robot"
-        >
-          <img 
-            src="/logo.svg" 
-            alt="Pulse Robot Logo" 
-            className="h-7 sm:h-8" 
-          />
-        </a>
+          <a 
+            href="#" 
+            className="flex items-center space-x-2"
+            onClick={(e) => {
+              e.preventDefault();
+              scrollToTop();
+            }}
+            aria-label="Nemory"
+          >
+            <img 
+              src="/logo.svg" 
+              alt="Nemory Logo" 
+              className="h-7 sm:h-8" 
+            />
+            <span className="font-display font-bold text-xl text-gray-900">Nemory</span>
+          </a>
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex space-x-8">
@@ -73,8 +74,9 @@ const Navbar = () => {
           >
             Home
           </a>
-          <a href="#features" className="nav-link">About</a>
-          <a href="#details" className="nav-link">Contact</a>
+          <a href="#how-it-works" className="nav-link">How it Works</a>
+          <a href="#features" className="nav-link">Features</a>
+          <a href="#testimonials" className="nav-link">Testimonials</a>
         </nav>
 
         {/* Mobile menu button - increased touch target */}
@@ -106,6 +108,16 @@ const Navbar = () => {
             Home
           </a>
           <a 
+            href="#how-it-works" 
+            className="text-xl font-medium py-3 px-6 w-full text-center rounded-lg hover:bg-gray-100" 
+            onClick={() => {
+              setIsMenuOpen(false);
+              document.body.style.overflow = '';
+            }}
+          >
+            How it Works
+          </a>
+          <a 
             href="#features" 
             className="text-xl font-medium py-3 px-6 w-full text-center rounded-lg hover:bg-gray-100" 
             onClick={() => {
@@ -113,17 +125,17 @@ const Navbar = () => {
               document.body.style.overflow = '';
             }}
           >
-            About
+            Features
           </a>
           <a 
-            href="#details" 
+            href="#testimonials" 
             className="text-xl font-medium py-3 px-6 w-full text-center rounded-lg hover:bg-gray-100" 
             onClick={() => {
               setIsMenuOpen(false);
               document.body.style.overflow = '';
             }}
           >
-            Contact
+            Testimonials
           </a>
         </nav>
       </div>
