@@ -84,8 +84,13 @@ const NotionCallback: React.FC = () => {
           // Redirect to dashboard after success
           setTimeout(() => navigate('/dashboard'), 2000);
         } catch (callbackError: any) {
-          // If the error is about state validation but we might already be connected,
-          // check if we should just redirect to dashboard
+          console.error('NotionCallback: Detailed error:', {
+            message: callbackError.message,
+            stack: callbackError.stack,
+            name: callbackError.name
+          });
+          
+          // Handle specific error types
           if (callbackError.message?.includes('Invalid state parameter')) {
             console.log('NotionCallback: State validation failed, checking if already connected...');
             setMessage('Verifying connection status...');
@@ -95,6 +100,27 @@ const NotionCallback: React.FC = () => {
               console.log('NotionCallback: Redirecting to dashboard to check connection status');
               navigate('/dashboard');
             }, 1000);
+            return;
+          }
+          
+          if (callbackError.message?.includes('Authorization code expired')) {
+            setStatus('error');
+            setMessage('The authorization code has expired. Please try connecting again.');
+            setTimeout(() => navigate('/dashboard'), 3000);
+            return;
+          }
+          
+          if (callbackError.message?.includes('Network error') || callbackError.message?.includes('fetch')) {
+            setStatus('error');
+            setMessage('Connection failed due to network issues. Please check your internet connection and try again.');
+            setTimeout(() => navigate('/dashboard'), 4000);
+            return;
+          }
+          
+          if (callbackError.message?.includes('CORS')) {
+            setStatus('error');
+            setMessage('Connection blocked by browser security. This issue has been reported to our team.');
+            setTimeout(() => navigate('/dashboard'), 4000);
             return;
           }
           

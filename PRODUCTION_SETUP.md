@@ -61,8 +61,15 @@ Ensure these are configured in your Notion integration:
 
 ## Environment Detection
 The app automatically detects the environment:
-- **Development**: Uses localhost redirect URI and proxy for API calls
-- **Production**: Uses production redirect URI and direct API calls
+- **Development**: Uses localhost redirect URI and serverless proxy function
+- **Production**: Uses production redirect URI and serverless proxy function
+
+## Serverless Function Setup
+The Notion OAuth integration uses a serverless function (`api/notion-token.js`) to avoid CORS issues:
+- All token exchange requests are proxied through this function
+- The function adds proper CORS headers
+- It forwards requests to Notion API and returns responses
+- This approach works in both development and production
 
 ## Troubleshooting
 

@@ -56,6 +56,7 @@ export class NotionOAuthService {
     console.log('NotionOAuth: Exchanging code for token...');
     console.log('NotionOAuth: Using redirect URI:', this.config.redirectUri);
     console.log('NotionOAuth: Using client ID:', this.config.clientId);
+    console.log('NotionOAuth: Environment:', import.meta.env.MODE);
     
     // Validate inputs
     if (!code) {
@@ -71,71 +72,77 @@ export class NotionOAuthService {
         grant_type: 'authorization_code',
         code: code.trim(), // Remove any whitespace
         redirect_uri: this.config.redirectUri,
+        client_id: this.config.clientId,
+        client_secret: this.config.clientSecret,
       };
       
-      console.log('NotionOAuth: Request body:', { ...requestBody, code: '[REDACTED]' });
+      console.log('NotionOAuth: Request body:', { 
+        ...requestBody, 
+        code: '[REDACTED]', 
+        client_secret: '[REDACTED]' 
+      });
       
-      // Try proxy first in development, then direct API
-      const urls = import.meta.env.DEV 
-        ? ['/api/notion/v1/oauth/token', 'https://api.notion.com/v1/oauth/token']
-        : ['https://api.notion.com/v1/oauth/token'];
+      // Always use serverless function to avoid CORS issues
+      const apiUrl = '/api/notion-token';
+      console.log('NotionOAuth: Using serverless function:', apiUrl);
       
-      let lastError: any;
-      
-      for (const apiUrl of urls) {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      console.log('NotionOAuth: Response status:', response.status);
+      console.log('NotionOAuth: Response headers:', Object.fromEntries(response.headers.entries()));
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('NotionOAuth: Token exchange failed:', errorText);
+        
+        let error;
         try {
-          console.log('NotionOAuth: Trying URL:', apiUrl);
-          
-          const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-              'Authorization': `Basic ${btoa(`${this.config.clientId}:${this.config.clientSecret}`)}`,
-            },
-            body: JSON.stringify(requestBody),
-          });
-
-          console.log('NotionOAuth: Response status:', response.status);
-          console.log('NotionOAuth: Response headers:', Object.fromEntries(response.headers.entries()));
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error('NotionOAuth: Token exchange failed:', errorText);
-            
-            let error;
-            try {
-              error = JSON.parse(errorText);
-            } catch {
-              error = { error: 'Unknown error', error_description: errorText };
-            }
-            
-            // If it's an invalid_grant error, don't try other URLs
-            if (error.error === 'invalid_grant') {
-              throw new Error('Authorization code expired or already used. Please try connecting again.');
-            }
-            
-            // For other errors, try the next URL
-            lastError = new Error(`${error.error_description || error.error || 'Unknown error'}`);
-            continue;
-          }
-
-          const tokenData = await response.json();
-          console.log('NotionOAuth: Token exchange successful');
-          return tokenData;
-          
-        } catch (fetchError: any) {
-          console.warn('NotionOAuth: Failed with URL:', apiUrl, fetchError.message);
-          lastError = fetchError;
-          continue;
+          error = JSON.parse(errorText);
+        } catch {
+          error = { error: 'Unknown error', error_description: errorText };
         }
+        
+        // Handle specific error cases
+        if (error.error === 'invalid_grant') {
+          throw new Error('Authorization code expired or already used. Please try connecting again.');
+        }
+        
+        if (error.error === 'invalid_client') {
+          throw new Error('Invalid client credentials. Please check your Notion app configuration.');
+        }
+        
+        if (error.error === 'invalid_request') {
+          throw new Error('Invalid request. Please try connecting again.');
+        }
+        
+        throw new Error(error.error_description || error.error || 'Token exchange failed');
+      }
+
+      const tokenData = await response.json();
+      console.log('NotionOAuth: Token exchange successful');
+      
+      // Validate the response structure
+      if (!tokenData.access_token) {
+        throw new Error('Invalid token response: missing access token');
       }
       
-      // If we get here, all URLs failed
-      throw lastError || new Error('All token exchange attempts failed');
+      return tokenData;
       
     } catch (error: any) {
       console.error('NotionOAuth: Token exchange error:', error);
+      
+      // Provide user-friendly error messages
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        throw new Error('Network error. Please check your internet connection and try again.');
+      }
+      
       throw error;
     }
   }

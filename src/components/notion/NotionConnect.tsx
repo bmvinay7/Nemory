@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNotion } from '@/contexts/NotionContext';
-import { Link, Unlink, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { Link, Unlink, CheckCircle, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import NotionDebug from './NotionDebug';
 
