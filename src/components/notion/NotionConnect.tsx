@@ -3,7 +3,6 @@ import { useNotion } from '@/contexts/NotionContext';
 import { Link, Unlink, CheckCircle, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import NotionDebug from './NotionDebug';
-import EnvDebug from '../EnvDebug';
 
 const NotionConnect: React.FC = () => {
   const { integration, isConnected, isLoading, connectNotion, disconnectNotion } = useNotion();
@@ -173,10 +172,7 @@ const NotionConnect: React.FC = () => {
             <p>✓ Disconnect anytime</p>
           </div>
         </div>
-      )}
-      
-      {/* Debug Information - Remove in production */}
-      {import.meta.env.DEV && <EnvDebug />}
+      }
 
     </div>
   );
