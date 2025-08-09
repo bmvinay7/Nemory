@@ -3,6 +3,7 @@ import { useNotion } from '@/contexts/NotionContext';
 import { Link, Unlink, CheckCircle, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import NotionDebug from './NotionDebug';
+import EnvDebug from '../EnvDebug';
 
 const NotionConnect: React.FC = () => {
   const { integration, isConnected, isLoading, connectNotion, disconnectNotion } = useNotion();
@@ -10,8 +11,18 @@ const NotionConnect: React.FC = () => {
 
   const handleConnect = () => {
     try {
+      console.log('NotionConnect: Connect button clicked');
+      console.log('NotionConnect: Environment variables check:', {
+        hasClientId: !!import.meta.env.VITE_NOTION_CLIENT_ID,
+        hasClientSecret: !!import.meta.env.VITE_NOTION_CLIENT_SECRET,
+        clientId: import.meta.env.VITE_NOTION_CLIENT_ID,
+        mode: import.meta.env.MODE,
+        dev: import.meta.env.DEV,
+        prod: import.meta.env.PROD
+      });
       connectNotion();
     } catch (error) {
+      console.error('NotionConnect: Connection error:', error);
       toast({
         title: "Connection Failed",
         description: "Unable to connect to Notion. Please try again.",
@@ -164,6 +175,8 @@ const NotionConnect: React.FC = () => {
         </div>
       )}
       
+      {/* Debug Information - Remove in production */}
+      {import.meta.env.DEV && <EnvDebug />}
 
     </div>
   );

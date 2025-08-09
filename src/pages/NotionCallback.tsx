@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useNotion } from '@/contexts/NotionContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,27 +12,65 @@ const NotionCallback: React.FC = () => {
   const { handleOAuthCallback } = useNotion();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('Processing Notion connection...');
+  
+  // Prevent double execution in React strict mode
+  const hasProcessed = useRef(false);
+  const isProcessing = useRef(false);
 
   useEffect(() => {
+    // Prevent double execution in React 18 strict mode
+    if (hasProcessed.current || isProcessing.current) {
+      console.log('NotionCallback: Already processed or processing, skipping');
+      return;
+    }
+    
     const handleCallback = async () => {
+      // Set processing flag immediately
+      isProcessing.current = true;
+      
       try {
         console.log('NotionCallback: Starting OAuth callback process');
         console.log('Current user:', currentUser?.uid);
         console.log('Search params:', Object.fromEntries(searchParams.entries()));
 
-        // Check if user is authenticated
+        // Check if user is authenticated with retry logic
         if (!currentUser) {
-          console.error('NotionCallback: User not authenticated, waiting for auth...');
-          // Wait a bit for authentication to load, then redirect
-          setTimeout(() => {
-            if (!currentUser) {
-              console.error('NotionCallback: Still no user after wait, redirecting to home');
-              setStatus('error');
-              setMessage('Please sign in first to connect Notion.');
-              setTimeout(() => navigate('/'), 2000);
-            }
-          }, 2000);
-          return;
+          console.log('NotionCallback: User not authenticated, waiting for auth...');
+          
+          // Wait for authentication with multiple retries
+          let retries = 0;
+          const maxRetries = 5;
+          const waitForAuth = async (): Promise<boolean> => {
+            return new Promise((resolve) => {
+              const checkAuth = () => {
+                if (currentUser) {
+                  console.log('NotionCallback: User authenticated after retry');
+                  resolve(true);
+                  return;
+                }
+                
+                retries++;
+                if (retries >= maxRetries) {
+                  console.error('NotionCallback: Authentication timeout after retries');
+                  resolve(false);
+                  return;
+                }
+                
+                console.log(`NotionCallback: Retry ${retries}/${maxRetries} waiting for auth...`);
+                setTimeout(checkAuth, 1000);
+              };
+              
+              checkAuth();
+            });
+          };
+          
+          const isAuthenticated = await waitForAuth();
+          if (!isAuthenticated) {
+            setStatus('error');
+            setMessage('Authentication required. Please sign in first.');
+            setTimeout(() => navigate('/'), 3000);
+            return;
+          }
         }
 
         // Get code and state from URL parameters
@@ -140,10 +178,22 @@ const NotionCallback: React.FC = () => {
         });
 
         setTimeout(() => navigate('/dashboard'), 3000);
+      } finally {
+        // Mark as processed to prevent re-execution
+        hasProcessed.current = true;
+        isProcessing.current = false;
       }
     };
 
-    handleCallback();
+    // Add a small delay to allow all state to initialize properly
+    const timeoutId = setTimeout(() => {
+      handleCallback();
+    }, 100);
+    
+    // Cleanup function
+    return () => {
+      clearTimeout(timeoutId);
+    };
   }, [searchParams, currentUser, navigate, handleOAuthCallback]);
 
   return (

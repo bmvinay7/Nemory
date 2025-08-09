@@ -1,6 +1,20 @@
 // Serverless function to handle Notion OAuth token exchange
 // This avoids CORS issues by making the API call server-side
 
+// In-memory cache to track recent requests (simple duplicate prevention)
+const recentRequests = new Map();
+const REQUEST_CACHE_DURATION = 30000; // 30 seconds
+
+// Clean up old requests periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, timestamp] of recentRequests.entries()) {
+    if (now - timestamp > REQUEST_CACHE_DURATION) {
+      recentRequests.delete(key);
+    }
+  }
+}, 60000); // Clean up every minute
+
 export default async function handler(req, res) {
   // Set CORS headers to allow frontend requests
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -64,6 +78,24 @@ export default async function handler(req, res) {
         error_description: 'Only authorization_code grant type is supported'
       });
     }
+
+    // Check for duplicate requests (prevent double token exchange)
+    const requestKey = `${code}_${client_id}`;
+    const now = Date.now();
+    
+    if (recentRequests.has(requestKey)) {
+      const timeSinceLastRequest = now - recentRequests.get(requestKey);
+      if (timeSinceLastRequest < REQUEST_CACHE_DURATION) {
+        console.warn('Duplicate token exchange request detected:', requestKey);
+        return res.status(409).json({
+          error: 'duplicate_request',
+          error_description: 'This authorization code is already being processed or has been used recently'
+        });
+      }
+    }
+    
+    // Mark this request as being processed
+    recentRequests.set(requestKey, now);
 
     console.log('Making token exchange request to Notion API...');
 

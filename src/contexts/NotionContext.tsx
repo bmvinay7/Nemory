@@ -165,7 +165,14 @@ export const NotionProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const connectNotion = () => {
-    if (!currentUser) return;
+    console.log('NotionContext: connectNotion called');
+    
+    if (!currentUser) {
+      console.error('NotionContext: No current user, cannot connect');
+      return;
+    }
+
+    console.log('NotionContext: Current user:', currentUser.uid);
 
     // Clear any existing OAuth state first
     sessionStorage.removeItem('notion_oauth_state');
@@ -181,10 +188,15 @@ export const NotionProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     sessionStorage.setItem('notion_oauth_state', state);
     console.log('NotionContext: Generated new OAuth state:', state);
 
-    // Redirect to Notion OAuth
-    const authUrl = notionOAuth.generateAuthUrl(state);
-    console.log('NotionContext: Redirecting to:', authUrl);
-    window.location.href = authUrl;
+    try {
+      // Redirect to Notion OAuth
+      const authUrl = notionOAuth.generateAuthUrl(state);
+      console.log('NotionContext: Generated auth URL:', authUrl);
+      console.log('NotionContext: Redirecting to Notion...');
+      window.location.href = authUrl;
+    } catch (error) {
+      console.error('NotionContext: Error generating auth URL:', error);
+    }
   };
 
   const handleOAuthCallback = async (code: string, state: string) => {
@@ -194,10 +206,23 @@ export const NotionProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     console.log('NotionContext: Received state:', state);
     console.log('NotionContext: Received code:', code ? 'present' : 'missing');
 
+    // Create a unique key for this callback attempt
+    const callbackKey = `oauth_callback_${code}_${currentUser.uid}`;
+    
+    // Check if this specific callback is already being processed
+    if (sessionStorage.getItem(callbackKey)) {
+      console.log('NotionContext: This callback is already being processed');
+      throw new Error('OAuth callback already in progress');
+    }
+    
+    // Mark this callback as being processed
+    sessionStorage.setItem(callbackKey, 'processing');
+
     // Check if we already have an integration (connection might have succeeded)
     const existingIntegration = integration;
     if (existingIntegration) {
       console.log('NotionContext: Integration already exists, skipping callback');
+      sessionStorage.removeItem(callbackKey); // Clean up
       return existingIntegration;
     }
 
@@ -266,9 +291,17 @@ export const NotionProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       await saveIntegration(integrationData);
 
       console.log('NotionContext: OAuth callback completed successfully');
+      
+      // Clean up callback tracking
+      sessionStorage.removeItem(callbackKey);
+      
       return integrationData;
     } catch (error: any) {
       console.error('NotionContext: OAuth callback failed:', error);
+      
+      // Clean up callback tracking on error
+      sessionStorage.removeItem(callbackKey);
+      
       throw error;
     }
   };

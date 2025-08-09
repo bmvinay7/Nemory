@@ -37,6 +37,27 @@ export class NotionOAuthService {
 
   // Generate the OAuth authorization URL
   generateAuthUrl(state?: string): string {
+    console.log('NotionOAuth: generateAuthUrl called with state:', !!state);
+    console.log('NotionOAuth: Config check:', {
+      hasClientId: !!this.config.clientId,
+      hasClientSecret: !!this.config.clientSecret,
+      hasRedirectUri: !!this.config.redirectUri,
+      clientId: this.config.clientId,
+      redirectUri: this.config.redirectUri
+    });
+
+    if (!this.config.clientId) {
+      const error = 'Missing Notion Client ID - check your environment variables';
+      console.error('NotionOAuth:', error);
+      throw new Error(error);
+    }
+
+    if (!this.config.redirectUri) {
+      const error = 'Missing redirect URI - check your environment variables';
+      console.error('NotionOAuth:', error);
+      throw new Error(error);
+    }
+
     const params = new URLSearchParams({
       client_id: this.config.clientId,
       response_type: 'code',
@@ -48,7 +69,11 @@ export class NotionOAuthService {
       params.append('state', state);
     }
 
-    return `https://api.notion.com/v1/oauth/authorize?${params.toString()}`;
+    const authUrl = `https://api.notion.com/v1/oauth/authorize?${params.toString()}`;
+    console.log('NotionOAuth: Generated auth URL:', authUrl);
+    console.log('NotionOAuth: URL parameters:', Object.fromEntries(params));
+    
+    return authUrl;
   }
 
   // Exchange authorization code for access token
@@ -120,6 +145,10 @@ export class NotionOAuthService {
         
         if (error.error === 'invalid_request') {
           throw new Error('Invalid request. Please try connecting again.');
+        }
+        
+        if (error.error === 'duplicate_request') {
+          throw new Error('Connection request already in progress. Please wait and try again.');
         }
         
         throw new Error(error.error_description || error.error || 'Token exchange failed');
