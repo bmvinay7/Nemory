@@ -1,0 +1,20 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow authenticated users to read/write their own notion integration data
+    match /notion_integrations/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Allow authenticated users to test connection
+    match /test/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // For development/testing - allow all authenticated users (remove in production)
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

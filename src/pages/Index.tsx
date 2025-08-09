@@ -3,13 +3,9 @@ import React, { useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import HowItWorks from "@/components/HowItWorks";
-import SpecsSection from "@/components/SpecsSection";
 import DetailsSection from "@/components/DetailsSection";
-import ImageShowcaseSection from "@/components/ImageShowcaseSection";
-import Features from "@/components/Features";
 import TestimonialsSection from "@/components/TestimonialsSection";
 import Newsletter from "@/components/Newsletter";
-import MadeByHumans from "@/components/MadeByHumans";
 import Footer from "@/components/Footer";
 
 const Index = () => {
@@ -64,12 +60,8 @@ const Index = () => {
       <main className="space-y-4 sm:space-y-8"> {/* Reduced space on mobile */}
         <Hero />
         <HowItWorks />
-        <SpecsSection />
-        <ImageShowcaseSection />
-        <Features />
         <TestimonialsSection />
         <Newsletter />
-        <MadeByHumans />
       </main>
       <Footer />
     </div>

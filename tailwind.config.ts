@@ -140,6 +140,9 @@ export default {
 				'hero-gradient': 'linear-gradient(90deg, hsla(24, 100%, 83%, 1) 0%, hsla(341, 91%, 68%, 1) 100%)',
 				'hero-gradient-2': 'linear-gradient(90deg, hsla(39, 100%, 77%, 1) 0%, hsla(22, 90%, 57%, 1) 100%)',
 				'pulse-gradient': 'linear-gradient(180deg, rgba(249,115,22,0.8) 0%, rgba(249,115,22,0) 100%)',
+				'footer-gradient': 'linear-gradient(135deg, #0f0f23 0%, #1a1a2e 10%, #16213e 20%, #0f3460 30%, #533483 40%, #7209b7 50%, #a663cc 60%, #d4a574 70%, #f39c12 80%, #e67e22 90%, #d35400 100%)',
+				'footer-gradient-overlay': 'linear-gradient(45deg, rgba(15,15,35,0.95) 0%, rgba(83,52,131,0.8) 30%, rgba(114,9,183,0.7) 50%, rgba(243,156,18,0.8) 80%, rgba(211,84,0,0.95) 100%)',
+				'footer-mesh': 'radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 119, 48, 0.3) 0%, transparent 50%), radial-gradient(circle at 40% 80%, rgba(120, 53, 131, 0.4) 0%, transparent 50%)',
 			},
 			fontFamily: {
 				'sans': ['Inter', 'sans-serif'],

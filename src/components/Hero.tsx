@@ -1,17 +1,11 @@
 
-import React, { useEffect, useRef, useState } from "react";
-import { cn } from "@/lib/utils";
-import { ArrowRight } from "lucide-react";
-import LottieAnimation from "./LottieAnimation";
+import React, { useEffect, useState } from "react";
+import { ArrowRight, Brain, Zap, Mail, MessageCircle } from "lucide-react";
 
 const Hero = () => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
-  const [lottieData, setLottieData] = useState<any>(null);
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    // Check if mobile on mount and when window resizes
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
@@ -21,163 +15,93 @@ const Hero = () => {
     
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-
-  useEffect(() => {
-    fetch('/loop-header.lottie')
-      .then(response => response.json())
-      .then(data => setLottieData(data))
-      .catch(error => console.error("Error loading Lottie animation:", error));
-  }, []);
-
-  useEffect(() => {
-    // Skip effect on mobile
-    if (isMobile) return;
-    
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!containerRef.current || !imageRef.current) return;
-      
-      const {
-        left,
-        top,
-        width,
-        height
-      } = containerRef.current.getBoundingClientRect();
-      const x = (e.clientX - left) / width - 0.5;
-      const y = (e.clientY - top) / height - 0.5;
-
-      imageRef.current.style.transform = `perspective(1000px) rotateY(${x * 2.5}deg) rotateX(${-y * 2.5}deg) scale3d(1.02, 1.02, 1.02)`;
-    };
-    
-    const handleMouseLeave = () => {
-      if (!imageRef.current) return;
-      imageRef.current.style.transform = `perspective(1000px) rotateY(0deg) rotateX(0deg) scale3d(1, 1, 1)`;
-    };
-    
-    const container = containerRef.current;
-    if (container) {
-      container.addEventListener("mousemove", handleMouseMove);
-      container.addEventListener("mouseleave", handleMouseLeave);
-    }
-    
-    return () => {
-      if (container) {
-        container.removeEventListener("mousemove", handleMouseMove);
-        container.removeEventListener("mouseleave", handleMouseLeave);
-      }
-    };
-  }, [isMobile]);
-  
-  useEffect(() => {
-    // Skip parallax on mobile
-    if (isMobile) return;
-    
-    const handleScroll = () => {
-      const scrollY = window.scrollY;
-      const elements = document.querySelectorAll('.parallax');
-      elements.forEach(el => {
-        const element = el as HTMLElement;
-        const speed = parseFloat(element.dataset.speed || '0.1');
-        const yPos = -scrollY * speed;
-        element.style.setProperty('--parallax-y', `${yPos}px`);
-      });
-    };
-    
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isMobile]);
   
   return (
     <section 
-      className="overflow-hidden relative bg-cover" 
-      id="hero" 
-      style={{
-        backgroundImage: 'url("/Header-background.webp")',
-        backgroundPosition: 'center 30%', 
-        padding: isMobile ? '100px 12px 40px' : '120px 20px 60px'
-      }}
+      className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-gray-50 via-white to-pulse-50/30" 
+      id="hero"
     >
-      <div className="absolute -top-[10%] -right-[5%] w-1/2 h-[70%] bg-pulse-gradient opacity-20 blur-3xl rounded-full"></div>
+      {/* Background decorative elements */}
+      <div className="absolute top-20 right-20 w-72 h-72 bg-pulse-100 rounded-full opacity-30 blur-3xl animate-pulse-slow"></div>
+      <div className="absolute bottom-20 left-20 w-64 h-64 bg-purple-100 rounded-full opacity-40 blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
+      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-pulse-50 to-orange-50 rounded-full opacity-20 blur-3xl"></div>
       
-      <div className="container px-4 sm:px-6 lg:px-8" ref={containerRef}>
-        <div className="flex flex-col lg:flex-row gap-6 lg:gap-12 items-center">
-          <div className="w-full lg:w-1/2">
-            <div 
-              className="pulse-chip mb-3 sm:mb-6 opacity-0 animate-fade-in" 
-              style={{ animationDelay: "0.1s" }}
-            >
-              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-pulse-500 text-white mr-2">01</span>
-              <span>Intelligence</span>
-            </div>
-            
-            <h1 
-              className="section-title text-3xl sm:text-4xl lg:text-5xl xl:text-6xl leading-tight opacity-0 animate-fade-in" 
-              style={{ animationDelay: "0.3s" }}
-            >
-              Nemory: Your Notes,<br className="hidden sm:inline" />Perfected & Delivered
-            </h1>
-            
-            <p 
-              style={{ animationDelay: "0.5s" }} 
-              className="section-subtitle mt-3 sm:mt-6 mb-4 sm:mb-8 leading-relaxed opacity-0 animate-fade-in text-gray-950 font-normal text-base sm:text-lg text-left"
-            >
-              Transform your Notion notes into actionable insights. AI-powered summaries delivered to your inbox and WhatsApp.
-            </p>
-            
-            <div 
-              className="flex flex-col sm:flex-row gap-4 opacity-0 animate-fade-in" 
-              style={{ animationDelay: "0.7s" }}
-            >
-              <a 
-                href="#get-started" 
-                className="flex items-center justify-center group w-full sm:w-auto text-center" 
-                style={{
-                  backgroundColor: '#FE5C02',
-                  borderRadius: '1440px',
-                  boxSizing: 'border-box',
-                  color: '#FFFFFF',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  lineHeight: '20px',
-                  padding: '16px 24px',
-                  border: '1px solid white',
-                }}
-              >
-                Start Free Trial
-                <ArrowRight className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1" />
-              </a>
-            </div>
+      <div className="container px-4 sm:px-6 lg:px-8 relative z-10">
+        <div className="text-center max-w-5xl mx-auto">
+          {/* Badge */}
+          <div 
+            className="inline-flex items-center px-4 py-2 rounded-full bg-pulse-100 text-pulse-700 text-sm font-medium mb-8 opacity-0 animate-fade-in border border-pulse-200" 
+            style={{ animationDelay: "0.1s" }}
+          >
+            <Brain className="w-4 h-4 mr-2" />
+            <span>AI-Powered Intelligence</span>
+            <Zap className="w-4 h-4 ml-2 text-pulse-500" />
           </div>
           
-          <div className="w-full lg:w-1/2 relative mt-6 lg:mt-0">
-            {lottieData ? (
-              <div className="relative z-10 animate-fade-in" style={{ animationDelay: "0.9s" }}>
-                <LottieAnimation 
-                  animationPath={lottieData} 
-                  className="w-full h-auto max-w-lg mx-auto"
-                  loop={true}
-                  autoplay={true}
-                />
-              </div>
-            ) : (
-              <>
-              <div className="absolute inset-0 bg-dark-900 rounded-2xl sm:rounded-3xl -z-10 shadow-xl"></div>
-              <div className="relative transition-all duration-500 ease-out overflow-hidden rounded-2xl sm:rounded-3xl shadow-2xl">
-                <img 
-                  ref={imageRef} 
-                  src="/lovable-uploads/5663820f-6c97-4492-9210-9eaa1a8dc415.png" 
-                  alt="Nemory Dashboard Interface" 
-                  className="w-full h-auto object-cover transition-transform duration-500 ease-out" 
-                  style={{ transformStyle: 'preserve-3d' }} 
-                />
-                <div className="absolute inset-0" style={{ backgroundImage: 'url("/hero-image.jpg")', backgroundSize: 'cover', backgroundPosition: 'center', mixBlendMode: 'overlay', opacity: 0.5 }}></div>
-              </div>
-              </>
-            )}
+          {/* Main Heading */}
+          <h1 
+            className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-display font-bold text-gray-900 leading-tight mb-6 opacity-0 animate-fade-in" 
+            style={{ animationDelay: "0.3s" }}
+          >
+            Nemory: Your Notes,<br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-pulse-600 to-orange-500">
+              Perfected & Delivered
+            </span>
+          </h1>
+          
+          {/* Subtitle */}
+          <p 
+            className="text-xl sm:text-2xl text-gray-600 leading-relaxed mb-10 max-w-3xl mx-auto opacity-0 animate-fade-in" 
+            style={{ animationDelay: "0.5s" }}
+          >
+            Transform your Notion notes into actionable insights with AI-powered analysis. 
+            Get personalized summaries delivered to your inbox and WhatsApp.
+          </p>
+          
+          {/* CTA Buttons */}
+          <div 
+            className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12 opacity-0 animate-fade-in" 
+            style={{ animationDelay: "0.7s" }}
+          >
+            <a 
+              href="#newsletter" 
+              className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-pulse-500 to-pulse-600 text-white font-semibold rounded-full hover:from-pulse-600 hover:to-pulse-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 group"
+            >
+              <Zap className="w-5 h-5 mr-2 group-hover:animate-pulse" />
+              Start Free Trial
+              <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+            </a>
+            
+            <a 
+              href="#how-it-works" 
+              className="inline-flex items-center px-8 py-4 bg-white text-gray-700 font-semibold rounded-full border-2 border-gray-200 hover:border-pulse-300 hover:text-pulse-600 transition-all duration-300 shadow-md hover:shadow-lg"
+            >
+              Learn How It Works
+            </a>
+          </div>
+          
+          {/* Feature highlights */}
+          <div 
+            className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto opacity-0 animate-fade-in" 
+            style={{ animationDelay: "0.9s" }}
+          >
+            <div className="flex items-center justify-center space-x-3 p-4 bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-100 shadow-sm">
+              <Brain className="w-6 h-6 text-pulse-500" />
+              <span className="font-medium text-gray-700">AI Analysis</span>
+            </div>
+            
+            <div className="flex items-center justify-center space-x-3 p-4 bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-100 shadow-sm">
+              <Mail className="w-6 h-6 text-pulse-500" />
+              <span className="font-medium text-gray-700">Email Delivery</span>
+            </div>
+            
+            <div className="flex items-center justify-center space-x-3 p-4 bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-100 shadow-sm">
+              <MessageCircle className="w-6 h-6 text-pulse-500" />
+              <span className="font-medium text-gray-700">WhatsApp Alerts</span>
+            </div>
           </div>
         </div>
       </div>
-      
-      <div className="hidden lg:block absolute bottom-0 left-1/4 w-64 h-64 bg-pulse-100/30 rounded-full blur-3xl -z-10 parallax" data-speed="0.05"></div>
     </section>
   );
 };
