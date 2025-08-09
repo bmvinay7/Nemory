@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Menu, X } from "lucide-react";
@@ -18,7 +17,6 @@ const Navbar = () => {
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
-    // Prevent background scrolling when menu is open
     document.body.style.overflow = !isMenuOpen ? 'hidden' : '';
   };
 
@@ -28,7 +26,6 @@ const Navbar = () => {
       behavior: 'smooth'
     });
     
-    // Close mobile menu if open
     if (isMenuOpen) {
       setIsMenuOpen(false);
       document.body.style.overflow = '';
@@ -45,22 +42,20 @@ const Navbar = () => {
       )}
     >
       <div className="container flex items-center justify-between px-4 sm:px-6 lg:px-8">
-          <a 
-            href="#" 
-            className="flex items-center space-x-2"
-            onClick={(e) => {
-              e.preventDefault();
-              scrollToTop();
-            }}
-            aria-label="Nemory"
-          >
-            <img 
-              src="/logo.svg" 
-              alt="Nemory Logo" 
-              className="h-7 sm:h-8" 
-            />
-            <span className="font-display font-bold text-xl text-gray-900">Nemory</span>
-          </a>
+        <a 
+          href="#" 
+          className="flex items-center space-x-2"
+          onClick={(e) => {
+            e.preventDefault();
+            scrollToTop();
+          }}
+          aria-label="Nemory"
+        >
+          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+            <span className="text-white font-bold text-lg">N</span>
+          </div>
+          <span className="font-display font-bold text-xl text-gray-900">Nemory</span>
+        </a>
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex space-x-8">
@@ -79,7 +74,7 @@ const Navbar = () => {
           <a href="#testimonials" className="nav-link">Testimonials</a>
         </nav>
 
-        {/* Mobile menu button - increased touch target */}
+        {/* Mobile menu button */}
         <button 
           className="md:hidden text-gray-700 p-3 focus:outline-none" 
           onClick={toggleMenu}
@@ -89,7 +84,7 @@ const Navbar = () => {
         </button>
       </div>
 
-      {/* Mobile Navigation - improved for better touch experience */}
+      {/* Mobile Navigation */}
       <div className={cn(
         "fixed inset-0 z-40 bg-white flex flex-col pt-16 px-6 md:hidden transition-all duration-300 ease-in-out",
         isMenuOpen ? "opacity-100 translate-x-0" : "opacity-0 translate-x-full pointer-events-none"
