@@ -172,7 +172,7 @@ const NotionConnect: React.FC = () => {
             <p>✓ Disconnect anytime</p>
           </div>
         </div>
-      }
+      )}
 
     </div>
   );
