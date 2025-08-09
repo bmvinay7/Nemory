@@ -187,19 +187,43 @@ export class NotionOAuthService {
 
 // Get the correct redirect URI based on environment
 const getRedirectUri = () => {
-  // In production, use the production redirect URI
-  if (import.meta.env.PROD) {
-    return import.meta.env.VITE_NOTION_REDIRECT_URI_PROD || 'https://nemory.vercel.app/auth/notion/callback';
+  // Always use current origin in browser environment for maximum compatibility
+  if (typeof window !== 'undefined') {
+    const currentOrigin = window.location.origin;
+    const redirectUri = `${currentOrigin}/auth/notion/callback`;
+    
+    console.log('NotionOAuth Environment Debug:', {
+      isDev: import.meta.env.DEV,
+      isProd: import.meta.env.PROD,
+      mode: import.meta.env.MODE,
+      currentOrigin,
+      redirectUri,
+      devRedirectUri: import.meta.env.VITE_NOTION_REDIRECT_URI,
+      prodRedirectUri: import.meta.env.VITE_NOTION_REDIRECT_URI_PROD,
+    });
+    
+    console.log('NotionOAuth: Using dynamic redirect URI:', redirectUri);
+    return redirectUri;
   }
   
-  // In development, use the development redirect URI or fallback to localhost
-  return import.meta.env.VITE_NOTION_REDIRECT_URI || 
-         (typeof window !== 'undefined' ? `${window.location.origin}/auth/notion/callback` : 'http://localhost:8080/auth/notion/callback');
+  // Server-side fallback (shouldn't be used in browser)
+  if (import.meta.env.PROD) {
+    const prodUri = import.meta.env.VITE_NOTION_REDIRECT_URI_PROD || 'https://nemory.vercel.app/auth/notion/callback';
+    console.log('NotionOAuth: Using server-side production URI:', prodUri);
+    return prodUri;
+  } else {
+    const devUri = import.meta.env.VITE_NOTION_REDIRECT_URI || 'http://localhost:8080/auth/notion/callback';
+    console.log('NotionOAuth: Using server-side development URI:', devUri);
+    return devUri;
+  }
 };
 
 // Initialize the Notion OAuth service
+const redirectUri = getRedirectUri();
+console.log('NotionOAuth: Initializing with redirect URI:', redirectUri);
+
 export const notionOAuth = new NotionOAuthService({
   clientId: import.meta.env.VITE_NOTION_CLIENT_ID || '',
   clientSecret: import.meta.env.VITE_NOTION_CLIENT_SECRET || '',
-  redirectUri: getRedirectUri(),
+  redirectUri: redirectUri,
 });
