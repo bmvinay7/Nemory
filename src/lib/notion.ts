@@ -185,9 +185,21 @@ export class NotionOAuthService {
   }
 }
 
+// Get the correct redirect URI based on environment
+const getRedirectUri = () => {
+  // In production, use the production redirect URI
+  if (import.meta.env.PROD) {
+    return import.meta.env.VITE_NOTION_REDIRECT_URI_PROD || 'https://nemory.vercel.app/auth/notion/callback';
+  }
+  
+  // In development, use the development redirect URI or fallback to localhost
+  return import.meta.env.VITE_NOTION_REDIRECT_URI || 
+         (typeof window !== 'undefined' ? `${window.location.origin}/auth/notion/callback` : 'http://localhost:8080/auth/notion/callback');
+};
+
 // Initialize the Notion OAuth service
 export const notionOAuth = new NotionOAuthService({
   clientId: import.meta.env.VITE_NOTION_CLIENT_ID || '',
   clientSecret: import.meta.env.VITE_NOTION_CLIENT_SECRET || '',
-  redirectUri: import.meta.env.VITE_NOTION_REDIRECT_URI || (typeof window !== 'undefined' ? `${window.location.origin}/auth/notion/callback` : ''),
+  redirectUri: getRedirectUri(),
 });

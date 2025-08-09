@@ -13,18 +13,36 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-// Debug Firebase configuration (only in development)
-if (import.meta.env.DEV) {
-  console.log('Firebase Config Debug:', {
-    hasApiKey: !!firebaseConfig.apiKey,
-    hasAuthDomain: !!firebaseConfig.authDomain,
-    hasProjectId: !!firebaseConfig.projectId,
-    projectId: firebaseConfig.projectId,
-    hasStorageBucket: !!firebaseConfig.storageBucket,
-    hasMessagingSenderId: !!firebaseConfig.messagingSenderId,
-    hasAppId: !!firebaseConfig.appId,
-  });
-}
+// Validate Firebase configuration
+const validateFirebaseConfig = () => {
+  const requiredFields = [
+    'apiKey', 'authDomain', 'projectId', 'storageBucket', 
+    'messagingSenderId', 'appId'
+  ];
+  
+  const missingFields = requiredFields.filter(field => !firebaseConfig[field as keyof typeof firebaseConfig]);
+  
+  if (missingFields.length > 0) {
+    console.error('Firebase: Missing required configuration fields:', missingFields);
+    throw new Error(`Firebase configuration incomplete. Missing: ${missingFields.join(', ')}`);
+  }
+  
+  if (import.meta.env.DEV) {
+    console.log('Firebase Config Debug:', {
+      hasApiKey: !!firebaseConfig.apiKey,
+      hasAuthDomain: !!firebaseConfig.authDomain,
+      hasProjectId: !!firebaseConfig.projectId,
+      projectId: firebaseConfig.projectId,
+      hasStorageBucket: !!firebaseConfig.storageBucket,
+      hasMessagingSenderId: !!firebaseConfig.messagingSenderId,
+      hasAppId: !!firebaseConfig.appId,
+      environment: import.meta.env.MODE,
+    });
+  }
+};
+
+// Validate configuration before initializing
+validateFirebaseConfig();
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
