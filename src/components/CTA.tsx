@@ -45,11 +45,11 @@ const CTA = () => {
           
           <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6">
             Be Among the First to <br className="hidden sm:inline" />
-            <span className="text-pulse-500">Experience Atlas</span>
+            <span className="text-pulse-500">Experience Nemory</span>
           </h2>
           
           <p className="text-base sm:text-lg text-gray-600 mb-6 sm:mb-8 max-w-2xl mx-auto">
-            We're accepting a limited number of early adopters. Submit your application today to secure your place in the future of robotics.
+            We're accepting a limited number of early adopters. Submit your application today to secure your place in the future of note management.
           </p>
           
           <div className="flex flex-col sm:flex-row justify-center gap-4">
