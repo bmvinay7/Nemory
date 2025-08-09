@@ -22,10 +22,16 @@ const NotionCallback: React.FC = () => {
 
         // Check if user is authenticated
         if (!currentUser) {
-          console.error('NotionCallback: User not authenticated');
-          setStatus('error');
-          setMessage('Please sign in first to connect Notion.');
-          setTimeout(() => navigate('/'), 3000);
+          console.error('NotionCallback: User not authenticated, waiting for auth...');
+          // Wait a bit for authentication to load, then redirect
+          setTimeout(() => {
+            if (!currentUser) {
+              console.error('NotionCallback: Still no user after wait, redirecting to home');
+              setStatus('error');
+              setMessage('Please sign in first to connect Notion.');
+              setTimeout(() => navigate('/'), 2000);
+            }
+          }, 2000);
           return;
         }
 
