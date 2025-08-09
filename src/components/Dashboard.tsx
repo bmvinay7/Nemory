@@ -3,7 +3,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Brain, LogOut, Settings, FileText, Mail, MessageCircle, BarChart3 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import NotionConnect from './notion/NotionConnect';
-import { FirestoreTest } from './FirestoreTest';
 
 const Dashboard: React.FC = () => {
   const { currentUser, logout } = useAuth();
@@ -110,11 +109,6 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Firestore Connection Test */}
-        <div className="mb-8">
-          <FirestoreTest />
         </div>
 
         {/* Notion Integration */}
