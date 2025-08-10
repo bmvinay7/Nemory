@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { summaryStorageService } from './summary-storage';
 
 // Initialize Gemini client
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GOOGLE_AI_API_KEY || '');
@@ -64,6 +65,7 @@ export interface ActionItem {
 export class AISummarizationService {
   private readonly MAX_TOKENS_PER_REQUEST = 4000;
   private readonly CONTEXT_WINDOW = 32000; // Gemini 1.5 Pro context window
+  private readonly REPETITION_THRESHOLD = 0.01; // 1% threshold for allowing repetition
 
   constructor() {
     if (!import.meta.env.VITE_GOOGLE_AI_API_KEY) {
@@ -72,18 +74,162 @@ export class AISummarizationService {
   }
 
   /**
-   * Universal smart note selection with adaptive content prioritization
-   * Intelligently selects the most valuable content based on type, quality, and user patterns
+   * Get previously summarized content for a user
    */
-  private selectSmartNote(content: NotionContent[], userId: string): NotionContent | null {
+  private async getPreviouslySummarizedContent(userId: string): Promise<{
+    contentIds: Set<string>;
+    summaryCount: number;
+    totalContentCount: number;
+    recentSummaries: SummaryResult[];
+  }> {
+    try {
+      // Import storage service dynamically to avoid circular dependencies
+      const { summaryStorageService } = await import('./summary-storage');
+      
+      // Get recent summaries (last 50)
+      const recentSummaries = await summaryStorageService.getUserSummaries(userId, 50);
+      
+      // Extract all content IDs that have been summarized
+      const contentIds = new Set<string>();
+      let totalContentCount = 0;
+      
+      recentSummaries.forEach(summary => {
+        summary.sourceContent.forEach(content => {
+          contentIds.add(content.id);
+          totalContentCount++;
+        });
+      });
+      
+      console.log(`📊 SUMMARY HISTORY ANALYSIS:`);
+      console.log(`   📝 Total summaries generated: ${recentSummaries.length}`);
+      console.log(`   📄 Unique content items summarized: ${contentIds.size}`);
+      console.log(`   🔄 Total content instances processed: ${totalContentCount}`);
+      
+      return {
+        contentIds,
+        summaryCount: recentSummaries.length,
+        totalContentCount,
+        recentSummaries
+      };
+    } catch (error) {
+      console.warn('Failed to get previous summaries, proceeding without history:', error);
+      return {
+        contentIds: new Set(),
+        summaryCount: 0,
+        totalContentCount: 0,
+        recentSummaries: []
+      };
+    }
+  }
+
+  /**
+   * Check if we should allow repetition based on the 1% threshold
+   */
+  private shouldAllowRepetition(
+    availableUnprocessed: number,
+    totalAvailable: number,
+    summaryHistory: { summaryCount: number; totalContentCount: number }
+  ): boolean {
+    // If we have unprocessed content, don't allow repetition
+    if (availableUnprocessed > 0) {
+      console.log(`🚫 REPETITION CHECK: ${availableUnprocessed} unprocessed items available, no repetition needed`);
+      return false;
+    }
+    
+    // Calculate repetition percentage
+    const repetitionPercentage = summaryHistory.summaryCount / Math.max(summaryHistory.totalContentCount, 1);
+    const allowRepetition = repetitionPercentage >= this.REPETITION_THRESHOLD;
+    
+    console.log(`🔄 REPETITION ANALYSIS:`);
+    console.log(`   📊 Summaries generated: ${summaryHistory.summaryCount}`);
+    console.log(`   📄 Content instances processed: ${summaryHistory.totalContentCount}`);
+    console.log(`   📈 Repetition percentage: ${(repetitionPercentage * 100).toFixed(2)}%`);
+    console.log(`   🎯 Threshold: ${(this.REPETITION_THRESHOLD * 100).toFixed(2)}%`);
+    console.log(`   ✅ Allow repetition: ${allowRepetition ? 'YES' : 'NO'}`);
+    
+    return allowRepetition;
+  }
+
+  /**
+   * Select content for repetition with different perspective
+   */
+  private selectContentForRepetition(
+    content: NotionContent[],
+    summaryHistory: { recentSummaries: SummaryResult[] }
+  ): NotionContent | null {
+    console.log(`🔄 SELECTING CONTENT FOR REPETITION WITH NEW PERSPECTIVE:`);
+    
+    // Find content that was summarized longest ago for fresh perspective
+    const contentLastSummarized = new Map<string, number>();
+    
+    summaryHistory.recentSummaries.forEach((summary, index) => {
+      const summaryAge = summaryHistory.recentSummaries.length - index; // Older = higher number
+      summary.sourceContent.forEach(content => {
+        if (!contentLastSummarized.has(content.id) || contentLastSummarized.get(content.id)! < summaryAge) {
+          contentLastSummarized.set(content.id, summaryAge);
+        }
+      });
+    });
+    
+    // Score content based on how long ago it was last summarized
+    const scoredContent = content.map(item => {
+      const lastSummarizedAge = contentLastSummarized.get(item.id) || 0;
+      const baseScore = this.scoreUniversalFactors(item);
+      const repetitionBonus = lastSummarizedAge * 10; // Bonus for older summaries
+      
+      return {
+        item,
+        score: baseScore + repetitionBonus,
+        lastSummarizedAge,
+        debugInfo: {
+          title: item.title,
+          lastSummarizedAge,
+          baseScore,
+          repetitionBonus,
+          totalScore: baseScore + repetitionBonus
+        }
+      };
+    });
+    
+    // Sort by score (highest first)
+    scoredContent.sort((a, b) => b.score - a.score);
+    
+    console.log(`   📋 TOP CANDIDATES FOR REPETITION:`);
+    scoredContent.slice(0, 5).forEach((item, index) => {
+      console.log(`   ${index + 1}. "${item.debugInfo.title}"`);
+      console.log(`      🕐 Last summarized: ${item.lastSummarizedAge} summaries ago`);
+      console.log(`      📊 Score: ${item.debugInfo.totalScore} (base: ${item.debugInfo.baseScore} + repetition: ${item.debugInfo.repetitionBonus})`);
+    });
+    
+    const selectedItem = scoredContent[0]?.item || null;
+    
+    if (selectedItem) {
+      const selectedScore = scoredContent[0];
+      console.log(`   ✅ SELECTED FOR REPETITION: "${selectedItem.title}"`);
+      console.log(`   🔄 Last summarized: ${selectedScore.lastSummarizedAge} summaries ago`);
+      console.log(`   💡 Will generate summary with different perspective/angle`);
+    }
+    
+    return selectedItem;
+  }
+
+  /**
+   * Universal smart note selection with adaptive content prioritization and repetition awareness
+   * Intelligently selects the most valuable content based on type, quality, user patterns, and summary history
+   */
+  private async selectSmartNote(content: NotionContent[], userId: string): Promise<NotionContent | null> {
     if (content.length === 0) return null;
     
-    console.log(`Smart selection: Evaluating ${content.length} content items`);
+    console.log(`🎯 SMART SELECTION WITH REPETITION AWARENESS:`);
+    console.log(`   📊 Evaluating ${content.length} content items`);
+    
+    // Get summary history to understand what's been processed
+    const summaryHistory = await this.getPreviouslySummarizedContent(userId);
     
     // Categorize content by type
     const contentByType = this.categorizeContent(content);
     
-    console.log(`Content distribution:`, {
+    console.log(`📋 CONTENT DISTRIBUTION:`, {
       toggles: contentByType.toggles.length,
       sections: contentByType.sections.length,
       listItems: contentByType.listItems.length,
@@ -91,11 +237,16 @@ export class AISummarizationService {
       pages: contentByType.pages.length,
     });
     
-    // Get processing history
+    // Filter out content that has been summarized (using persistent history)
+    const filterPreviouslySummarized = (items: NotionContent[]) => {
+      return items.filter(item => !summaryHistory.contentIds.has(item.id));
+    };
+    
+    // Get processing history for recent 24-hour filtering
     const getProcessedKey = (id: string) => `processed_${userId}_${id}`;
     const lastProcessedKey = `last_processed_note_${userId}`;
     
-    // Filter out recently processed content (within last 24 hours)
+    // Filter out recently processed content (within last 24 hours) - this is for immediate repetition prevention
     const filterRecentlyProcessed = (items: NotionContent[]) => {
       return items.filter(item => {
         const processedKey = getProcessedKey(item.id);
@@ -109,22 +260,42 @@ export class AISummarizationService {
       });
     };
     
-    // Filter each content type
-    const availableContent = {
-      toggles: filterRecentlyProcessed(contentByType.toggles),
-      sections: filterRecentlyProcessed(contentByType.sections),
-      listItems: filterRecentlyProcessed(contentByType.listItems),
-      highlights: filterRecentlyProcessed(contentByType.highlights),
-      pages: filterRecentlyProcessed(contentByType.pages),
+    // Apply both filters: first remove previously summarized, then remove recently processed
+    const getAvailableContent = (items: NotionContent[]) => {
+      const notSummarized = filterPreviouslySummarized(items);
+      return filterRecentlyProcessed(notSummarized);
     };
     
-    // If no unprocessed content, reset and use all
+    // Filter each content type
+    const availableContent = {
+      toggles: getAvailableContent(contentByType.toggles),
+      sections: getAvailableContent(contentByType.sections),
+      listItems: getAvailableContent(contentByType.listItems),
+      highlights: getAvailableContent(contentByType.highlights),
+      pages: getAvailableContent(contentByType.pages),
+    };
+    
     const totalAvailable = Object.values(availableContent).reduce((sum, arr) => sum + arr.length, 0);
+    
+    console.log(`🔍 AVAILABILITY ANALYSIS:`);
+    console.log(`   📊 Unprocessed content available: ${totalAvailable}`);
+    console.log(`   📈 Previously summarized: ${summaryHistory.contentIds.size} unique items`);
+    
+    // Check if we should allow repetition
     if (totalAvailable === 0) {
-      console.log('No unprocessed content found, resetting to all content');
-      Object.keys(availableContent).forEach(key => {
-        availableContent[key as keyof typeof availableContent] = contentByType[key as keyof typeof contentByType];
-      });
+      const shouldRepeat = this.shouldAllowRepetition(
+        totalAvailable,
+        content.length,
+        summaryHistory
+      );
+      
+      if (shouldRepeat) {
+        console.log(`🔄 ENABLING REPETITION MODE: Selecting content for new perspective`);
+        return this.selectContentForRepetition(content, summaryHistory);
+      } else {
+        console.log(`🚫 NO REPETITION: Not enough summaries generated yet (need ${(this.REPETITION_THRESHOLD * 100).toFixed(1)}% threshold)`);
+        return null;
+      }
     }
     
     // Score all content with type-specific logic
@@ -459,7 +630,7 @@ export class AISummarizationService {
   }
 
   /**
-   * Smart summarization function - selects ONE note intelligently
+   * Smart summarization function - selects ONE note intelligently with repetition awareness
    */
   async smartSummarizeContent(
     content: NotionContent[],
@@ -502,7 +673,23 @@ export class AISummarizationService {
       console.log(`   ✅ VALIDATION PASSED: Processing exactly ${selectedContent.length} item`);
       console.log(`   📄 Content preview: "${selectedNote.content.substring(0, 200)}..."`);
       
-      // Step 2: Preprocess the selected content
+      // Step 2: Check if this is a repetition and get previous summaries
+      const summaryHistory = await this.getPreviouslySummarizedContent(userId);
+      const isRepetition = summaryHistory.contentIds.has(selectedNote.id);
+      let previousSummaries: string[] = [];
+      
+      if (isRepetition) {
+        console.log(`   🔄 REPETITION DETECTED: This content was previously summarized`);
+        // Get previous summaries of this content for context
+        previousSummaries = summaryHistory.recentSummaries
+          .filter(summary => summary.sourceContent.some(content => content.id === selectedNote.id))
+          .map(summary => summary.summary)
+          .slice(0, 3); // Last 3 summaries for context
+        
+        console.log(`   📚 Found ${previousSummaries.length} previous summaries for context`);
+      }
+      
+      // Step 3: Preprocess the selected content
       const processedContent = await this.preprocessContent(selectedContent);
       console.log(`   📝 Preprocessed content length: ${processedContent.length} characters`);
       
@@ -515,9 +702,18 @@ export class AISummarizationService {
         console.warn(`   📄 Preprocessed content preview: "${processedContent.substring(0, 300)}..."`);
       }
       
-      // Step 3: Generate summary with AI
+      // Step 4: Generate summary with AI (with repetition awareness)
       console.log(`   🤖 Sending SINGLE ITEM to AI for summarization...`);
-      const summaryData = await this.generateSummaryWithAI(processedContent, options);
+      if (isRepetition) {
+        console.log(`   🔄 Using REPETITION MODE: Will generate fresh perspective`);
+      }
+      
+      const summaryData = await this.generateSummaryWithAI(
+        processedContent, 
+        options, 
+        isRepetition, 
+        previousSummaries
+      );
       
       // Step 4: Extract action items and insights from the selected note only
       const actionItems = await this.extractActionItems(processedContent);
@@ -542,12 +738,23 @@ export class AISummarizationService {
         readingTime: this.calculateReadingTime(summaryData),
       };
 
+      // Step 6: Save the summary to storage
+      try {
+        const { summaryStorageService } = await import('./summary-storage');
+        await summaryStorageService.saveSummary(result);
+        console.log(`   💾 Summary saved to storage successfully`);
+      } catch (storageError) {
+        console.warn(`   ⚠️  Failed to save summary to storage:`, storageError);
+        // Don't fail the entire operation if storage fails
+      }
+
       console.log(`🎯 SMART SUMMARIZATION COMPLETE:`);
       console.log(`   ✅ Summary generated from SINGLE source: "${selectedNote.title}"`);
       console.log(`   📊 Summary length: ${result.wordCount} words`);
       console.log(`   📊 Action items: ${result.actionItems.length}`);
       console.log(`   📊 Key insights: ${result.keyInsights.length}`);
       console.log(`   📊 Source content items: ${result.sourceContent.length} (MUST be 1)`);
+      console.log(`   🔄 Is repetition: ${isRepetition ? 'YES' : 'NO'}`);
       
       // Final validation
       if (result.sourceContent.length !== 1) {
@@ -870,10 +1077,12 @@ export class AISummarizationService {
    */
   private async generateSummaryWithAI(
     content: string,
-    options: SummaryOptions
+    options: SummaryOptions,
+    isRepetition: boolean = false,
+    previousSummaries: string[] = []
   ): Promise<string> {
-    const systemPrompt = this.getSystemPrompt(options.style);
-    const userPrompt = this.buildSummaryPrompt(content, options);
+    const systemPrompt = this.getSystemPrompt(options.style, isRepetition);
+    const userPrompt = this.buildSummaryPrompt(content, options, isRepetition, previousSummaries);
     
     // Combine system and user prompts for Gemini
     const fullPrompt = `${systemPrompt}\n\n${userPrompt}`;
@@ -1018,9 +1227,14 @@ Return ONLY a JSON object with format:
   }
 
   /**
-   * Build the main summary prompt with universal content type awareness
+   * Build the main summary prompt with universal content type awareness and repetition handling
    */
-  private buildSummaryPrompt(content: string, options: SummaryOptions): string {
+  private buildSummaryPrompt(
+    content: string, 
+    options: SummaryOptions, 
+    isRepetition: boolean = false, 
+    previousSummaries: string[] = []
+  ): string {
     // Detect content type
     const contentType = this.detectContentType(content);
     
@@ -1028,7 +1242,18 @@ Return ONLY a JSON object with format:
     const isSingleToggle = content.includes('--- SINGLE TOGGLE ANALYSIS ---');
     const isClosedToggle = content.includes('Toggle Status: CLOSED/COLLAPSED');
     
-    let prompt = `Please analyze and summarize the following Notion content:\n\n${content}\n\n`;
+    let prompt = isRepetition 
+      ? `🔄 REPETITION MODE: Please analyze and provide a FRESH PERSPECTIVE on the following Notion content that has been summarized before:\n\n${content}\n\n`
+      : `Please analyze and summarize the following Notion content:\n\n${content}\n\n`;
+    
+    // Add previous summaries context for repetition mode
+    if (isRepetition && previousSummaries.length > 0) {
+      prompt += `📚 PREVIOUS SUMMARIES FOR CONTEXT (DO NOT REPEAT THESE APPROACHES):\n\n`;
+      previousSummaries.forEach((summary, index) => {
+        prompt += `--- Previous Summary ${index + 1} ---\n${summary.substring(0, 500)}${summary.length > 500 ? '...' : ''}\n\n`;
+      });
+      prompt += `🎯 YOUR TASK: Provide a completely different perspective, angle, or focus than the above summaries.\n\n`;
+    }
     
     // Add enhanced instructions for single toggle content
     if (isSingleToggle) {
@@ -1200,9 +1425,9 @@ PAGE ANALYSIS INSTRUCTIONS:
   }
 
   /**
-   * Get system prompt based on style with universal content type awareness
+   * Get system prompt based on style with universal content type awareness and repetition handling
    */
-  private getSystemPrompt(style: string): string {
+  private getSystemPrompt(style: string, isRepetition: boolean = false): string {
     const basePrompts = {
       executive: 'You are an executive assistant creating concise, high-level summaries for busy professionals. Focus on key decisions, outcomes, and strategic points.',
       detailed: 'You are a research analyst creating comprehensive summaries that preserve important details while maintaining clarity and organization.',
@@ -1256,7 +1481,41 @@ GENERAL PRINCIPLES:
 - Preserve the intent and emphasis of the original content structure
 - Extract maximum value appropriate to each content type`;
 
-    return basePrompt + universalInstructions;
+    // Add repetition-specific instructions if this is a repeated summary
+    const repetitionInstructions = isRepetition ? `
+
+🔄 REPETITION MODE INSTRUCTIONS:
+
+CRITICAL: This content has been summarized before. Your task is to provide a FRESH PERSPECTIVE with a different angle or focus.
+
+REPETITION GUIDELINES:
+- DO NOT simply rewrite the previous summary
+- Explore different aspects, themes, or angles of the same content
+- Look for insights that might have been missed in previous summaries
+- Consider alternative interpretations or applications
+- Focus on different stakeholder perspectives (e.g., if previous was technical, try strategic)
+- Highlight different time horizons (short-term vs long-term implications)
+- Emphasize different domains (if content spans multiple areas)
+- Consider different implementation approaches or use cases
+
+FRESH PERSPECTIVE APPROACHES:
+1. **Different Lens**: If previous summary was tactical, try strategic. If it was individual-focused, try team/organizational.
+2. **Different Time Frame**: Focus on immediate actions vs long-term implications
+3. **Different Audience**: Consider how this content applies to different roles or industries
+4. **Different Application**: Explore alternative ways to implement or use these insights
+5. **Different Context**: Consider how current events or trends might change the relevance
+6. **Contrarian View**: What counterarguments or limitations should be considered?
+7. **Integration Focus**: How does this connect to other knowledge areas or skills?
+
+MAINTAIN QUALITY: While providing a fresh perspective, maintain the same high standards for:
+- Actionable insights and takeaways
+- Clear structure and organization  
+- Practical implementation guidance
+- Priority-based action items
+
+The goal is to extract NEW VALUE from the same content by approaching it from a different angle.` : '';
+
+    return basePrompt + universalInstructions + repetitionInstructions;
   }
 
   /**
