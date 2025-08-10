@@ -96,6 +96,15 @@ const Login: React.FC<LoginProps> = ({ onSwitchToSignup, onClose }) => {
         errorMessage = "Popup blocked. Please allow popups and try again.";
       } else if (errorCode === 'auth/network-request-failed') {
         errorMessage = "Network error. Please check your connection.";
+      } else if (errorCode === 'auth/account-exists-with-different-credential') {
+        const email = (error as any).email;
+        const methods = (error as any).existingMethods || [];
+        
+        if (methods.includes('password')) {
+          errorMessage = `An account with ${email} already exists with email/password. Please sign in with your email and password first, then you can link your Google account in settings.`;
+        } else {
+          errorMessage = `An account with ${email} already exists with a different sign-in method. Please use your original sign-in method.`;
+        }
       }
       
       toast({

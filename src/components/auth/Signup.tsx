@@ -31,7 +31,7 @@ const Signup: React.FC<SignupProps> = ({ onSwitchToLogin, onClose }) => {
     const errorCode = error.code;
     switch (errorCode) {
       case 'auth/email-already-in-use':
-        return "An account with this email already exists. Please sign in instead.";
+        return "An account with this email already exists. With account linking enabled, please sign in with your existing method (Google, etc.) and then link your email/password in settings if needed.";
       case 'auth/invalid-email':
         return "Please enter a valid email address.";
       case 'auth/operation-not-allowed':
@@ -145,7 +145,14 @@ const Signup: React.FC<SignupProps> = ({ onSwitchToLogin, onClose }) => {
       } else if (errorCode === 'auth/popup-blocked') {
         errorMessage = "Popup blocked. Please allow popups and try again.";
       } else if (errorCode === 'auth/account-exists-with-different-credential') {
-        errorMessage = "An account already exists with this email. Please sign in instead.";
+        const email = (error as any).email;
+        const methods = (error as any).existingMethods || [];
+        
+        if (methods.includes('password')) {
+          errorMessage = `An account with ${email} already exists with email/password. Please sign in with your email and password, then you can link your Google account in settings.`;
+        } else {
+          errorMessage = `An account with ${email} already exists. Please sign in with your existing method.`;
+        }
       } else if (errorCode === 'auth/network-request-failed') {
         errorMessage = "Network error. Please check your connection.";
       }

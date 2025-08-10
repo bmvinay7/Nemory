@@ -8,7 +8,11 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   sendPasswordResetEmail,
-  updateProfile
+  updateProfile,
+  linkWithCredential,
+  EmailAuthProvider,
+  fetchSignInMethodsForEmail,
+  signInWithCredential
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
@@ -20,6 +24,8 @@ interface AuthContextType {
   logout: () => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  linkEmailPassword: (email: string, password: string) => Promise<void>;
+  checkExistingMethods: (email: string) => Promise<string[]>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,13 +55,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return signOut(auth);
   };
 
-  const loginWithGoogle = () => {
+  const loginWithGoogle = async () => {
     const provider = new GoogleAuthProvider();
-    return signInWithPopup(auth, provider);
+    
+    try {
+      const result = await signInWithPopup(auth, provider);
+      return result;
+    } catch (error: any) {
+      // Handle account linking scenarios
+      if (error.code === 'auth/account-exists-with-different-credential') {
+        const email = error.customData?.email;
+        if (email) {
+          // Get existing sign-in methods for this email
+          const methods = await fetchSignInMethodsForEmail(auth, email);
+          
+          // Create a more specific error with linking information
+          const linkingError = new Error('Account linking required');
+          (linkingError as any).code = 'auth/account-exists-with-different-credential';
+          (linkingError as any).email = email;
+          (linkingError as any).existingMethods = methods;
+          (linkingError as any).pendingCredential = error.credential;
+          throw linkingError;
+        }
+      }
+      throw error;
+    }
   };
 
   const resetPassword = (email: string) => {
     return sendPasswordResetEmail(auth, email);
+  };
+
+  const checkExistingMethods = async (email: string): Promise<string[]> => {
+    try {
+      return await fetchSignInMethodsForEmail(auth, email);
+    } catch (error) {
+      console.error('Error checking existing methods:', error);
+      return [];
+    }
+  };
+
+  const linkEmailPassword = async (email: string, password: string): Promise<void> => {
+    if (!currentUser) {
+      throw new Error('No user is currently signed in');
+    }
+
+    const credential = EmailAuthProvider.credential(email, password);
+    await linkWithCredential(currentUser, credential);
   };
 
   useEffect(() => {
@@ -74,7 +120,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     login,
     logout,
     loginWithGoogle,
-    resetPassword
+    resetPassword,
+    linkEmailPassword,
+    checkExistingMethods
   };
 
   return (

@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Brain, LogOut, Settings, FileText, Mail, MessageCircle, BarChart3 } from 'lucide-react';
+import { Brain, LogOut, Settings, FileText, Mail, MessageCircle, BarChart3, User } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import NotionConnect from './notion/NotionConnect';
 import AISummarization from './ai/AISummarization';
+import AccountLinking from './auth/AccountLinking';
 
 const Dashboard: React.FC = () => {
   const { currentUser, logout } = useAuth();
+  const [activeTab, setActiveTab] = useState<'overview' | 'settings'>('overview');
 
   const handleLogout = async () => {
     try {
@@ -41,8 +43,33 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* User Menu */}
+            {/* Navigation & User Menu */}
             <div className="flex items-center space-x-4">
+              {/* Navigation Tabs */}
+              <nav className="flex space-x-1">
+                <button
+                  onClick={() => setActiveTab('overview')}
+                  className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'overview'
+                      ? 'bg-pulse-100 text-pulse-700'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                >
+                  Overview
+                </button>
+                <button
+                  onClick={() => setActiveTab('settings')}
+                  className={`flex items-center space-x-1 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'settings'
+                      ? 'bg-pulse-100 text-pulse-700'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                >
+                  <Settings className="w-4 h-4" />
+                  <span>Settings</span>
+                </button>
+              </nav>
+
               <div className="text-right">
                 <p className="text-sm font-medium text-gray-900">
                   {currentUser?.displayName || 'User'}
@@ -63,60 +90,79 @@ const Dashboard: React.FC = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-display font-bold text-gray-900 mb-2">
-            Welcome back, {currentUser?.displayName?.split(' ')[0] || 'there'}!
-          </h2>
-          <p className="text-gray-600">
-            Your AI-powered notes assistant is ready to help you transform your Notion notes into actionable insights.
-          </p>
-        </div>
+        {activeTab === 'overview' ? (
+          <>
+            {/* Welcome Section */}
+            <div className="mb-8">
+              <h2 className="text-3xl font-display font-bold text-gray-900 mb-2">
+                Welcome back, {currentUser?.displayName?.split(' ')[0] || 'there'}!
+              </h2>
+              <p className="text-gray-600">
+                Your AI-powered notes assistant is ready to help you transform your Notion notes into actionable insights.
+              </p>
+            </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-pulse-100 rounded-lg flex items-center justify-center">
-                <FileText className="w-6 h-6 text-pulse-600" />
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-pulse-100 rounded-lg flex items-center justify-center">
+                    <FileText className="w-6 h-6 text-pulse-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-gray-900">0</p>
+                    <p className="text-gray-600 text-sm">Notes Processed</p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">0</p>
-                <p className="text-gray-600 text-sm">Notes Processed</p>
+
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <Mail className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-gray-900">0</p>
+                    <p className="text-gray-600 text-sm">Summaries Sent</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                    <BarChart3 className="w-6 h-6 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-gray-900">0</p>
+                    <p className="text-gray-600 text-sm">Action Items</p>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Mail className="w-6 h-6 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">0</p>
-                <p className="text-gray-600 text-sm">Summaries Sent</p>
-              </div>
+            {/* Notion Integration */}
+            <NotionConnect />
+            
+            {/* AI Summarization */}
+            <AISummarization />
+          </>
+        ) : (
+          <>
+            {/* Settings Section */}
+            <div className="mb-8">
+              <h2 className="text-3xl font-display font-bold text-gray-900 mb-2">Settings</h2>
+              <p className="text-gray-600">
+                Manage your account settings and preferences.
+              </p>
             </div>
-          </div>
 
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <BarChart3 className="w-6 h-6 text-green-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">0</p>
-                <p className="text-gray-600 text-sm">Action Items</p>
-              </div>
+            {/* Settings Content */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <AccountLinking />
             </div>
-          </div>
-        </div>
-
-        {/* Notion Integration */}
-        <NotionConnect />
-        
-        {/* AI Summarization */}
-        <AISummarization />
+          </>
+        )}
       </main>
     </div>
   );
