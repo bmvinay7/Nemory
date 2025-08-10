@@ -12,6 +12,7 @@
     "test:notion": "node test-notion-serverless.js"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.21.0",
     "@hookform/resolvers": "^3.9.0",
     "@notionhq/client": "^4.0.1",
     "@radix-ui/react-accordion": "^1.2.0",

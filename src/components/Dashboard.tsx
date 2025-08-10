@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Brain, LogOut, Settings, FileText, Mail, MessageCircle, BarChart3 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import NotionConnect from './notion/NotionConnect';
+import AISummarization from './ai/AISummarization';
 
 const Dashboard: React.FC = () => {
   const { currentUser, logout } = useAuth();
@@ -113,6 +114,9 @@ const Dashboard: React.FC = () => {
 
         {/* Notion Integration */}
         <NotionConnect />
+        
+        {/* AI Summarization */}
+        <AISummarization />
       </main>
     </div>
   );

@@ -29,3 +29,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Test files and development documentation
+test-*.js
+firestore-test.js
+*_SETUP.md
+*_STATUS.md
+*_FIX.md
+*_IMPLEMENTATION.md
+SYSTEM_*.md
+TOGGLE_*.md
+COMPLETE_*.md
+SINGLE_*.md
