@@ -44,7 +44,7 @@ const Newsletter = () => {
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email address" className="w-full px-6 py-4 rounded-full border border-gray-200 focus:outline-none focus:ring-2 focus:ring-pulse-500 text-gray-700" required />
             </div>
             <button type="submit" disabled={isSubmitting} className="bg-pulse-500 hover:bg-pulse-600 text-white font-medium py-4 px-10 rounded-full transition-all duration-300 md:ml-4">
-              {isSubmitting ? "Starting..." : "Start Free Trial"}
+              {isSubmitting ? "Starting..." : "Get Started"}
             </button>
           </form>
         </div>

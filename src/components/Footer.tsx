@@ -71,7 +71,7 @@ const Footer = () => {
               href="#newsletter" 
               className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-pulse-500 to-pulse-600 text-white font-medium rounded-lg hover:from-pulse-600 hover:to-pulse-700 transition-all duration-300 shadow-lg hover:shadow-xl group"
             >
-              Start Free Trial
+              Get Started
               <Brain className="w-4 h-4 ml-2 group-hover:animate-pulse" />
             </a>
           </div>

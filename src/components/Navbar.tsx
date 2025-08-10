@@ -44,6 +44,15 @@ const Navbar = () => {
     setIsAuthModalOpen(true);
   };
 
+  const handleGetStarted = () => {
+    if (currentUser) {
+      navigate('/dashboard');
+    } else {
+      setAuthMode('signup');
+      setIsAuthModalOpen(true);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await logout();
@@ -107,9 +116,6 @@ const Navbar = () => {
           <a href="#features" className="nav-link font-medium">
             Features
           </a>
-          <a href="#testimonials" className="nav-link font-medium">
-            Testimonials
-          </a>
           
           {/* Auth Buttons */}
           <div className="flex items-center space-x-4 ml-4">
@@ -139,11 +145,11 @@ const Navbar = () => {
                   Sign In
                 </button>
                 <button
-                  onClick={() => handleAuthClick('signup')}
+                  onClick={handleGetStarted}
                   className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-pulse-500 to-pulse-600 text-white font-medium rounded-full hover:from-pulse-600 hover:to-pulse-700 transition-all duration-300 shadow-md hover:shadow-lg group"
                 >
                   <Zap className="w-4 h-4 mr-2 group-hover:animate-pulse" />
-                  Start Free Trial
+                  Get Started
                   <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
                 </button>
               </div>
@@ -162,7 +168,7 @@ const Navbar = () => {
             </button>
           ) : (
             <button
-              onClick={() => handleAuthClick('signup')}
+              onClick={handleGetStarted}
               className="inline-flex items-center px-3 py-2 bg-pulse-500 text-white text-sm font-medium rounded-full hover:bg-pulse-600 transition-colors"
             >
               Try Free
@@ -229,17 +235,6 @@ const Navbar = () => {
             <span className="text-lg font-medium">Features</span>
             <ArrowRight className="w-5 h-5 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
           </a>
-          <a 
-            href="#testimonials" 
-            className="flex items-center justify-between py-4 px-6 rounded-xl hover:bg-pulse-50 hover:text-pulse-600 transition-all group" 
-            onClick={() => {
-              setIsMenuOpen(false);
-              document.body.style.overflow = '';
-            }}
-          >
-            <span className="text-lg font-medium">Testimonials</span>
-            <ArrowRight className="w-5 h-5 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-          </a>
         </nav>
 
         {/* Mobile Auth */}
@@ -274,14 +269,14 @@ const Navbar = () => {
             <div className="space-y-3">
               <button
                 onClick={() => {
-                  handleAuthClick('signup');
+                  handleGetStarted();
                   setIsMenuOpen(false);
                   document.body.style.overflow = '';
                 }}
                 className="flex items-center justify-center w-full py-4 bg-gradient-to-r from-pulse-500 to-pulse-600 text-white font-medium rounded-xl hover:from-pulse-600 hover:to-pulse-700 transition-all shadow-lg group"
               >
                 <Zap className="w-5 h-5 mr-2 group-hover:animate-pulse" />
-                Start Your Free Trial
+                Get Started
                 <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
               </button>
               <button

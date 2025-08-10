@@ -1,9 +1,16 @@
 
 import React, { useEffect, useState } from "react";
 import { ArrowRight, Brain, Zap, Mail, MessageCircle } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
+import AuthModal from "./auth/AuthModal";
 
 const Hero = () => {
   const [isMobile, setIsMobile] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
+  const { currentUser } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const checkMobile = () => {
@@ -15,6 +22,15 @@ const Hero = () => {
     
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  const handleGetStarted = () => {
+    if (currentUser) {
+      navigate('/dashboard');
+    } else {
+      setAuthMode('signup');
+      setIsAuthModalOpen(true);
+    }
+  };
   
   return (
     <section 
@@ -63,14 +79,14 @@ const Hero = () => {
             className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12 opacity-0 animate-fade-in" 
             style={{ animationDelay: "0.7s" }}
           >
-            <a 
-              href="#newsletter" 
+            <button 
+              onClick={handleGetStarted}
               className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-pulse-500 to-pulse-600 text-white font-semibold rounded-full hover:from-pulse-600 hover:to-pulse-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 group"
             >
               <Zap className="w-5 h-5 mr-2 group-hover:animate-pulse" />
-              Start Free Trial
+              {currentUser ? 'Go to Dashboard' : 'Get Started'}
               <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-            </a>
+            </button>
             
             <a 
               href="#how-it-works" 
@@ -102,6 +118,13 @@ const Hero = () => {
           </div>
         </div>
       </div>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        initialMode={authMode}
+      />
     </section>
   );
 };

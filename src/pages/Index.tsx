@@ -2,10 +2,10 @@
 import React, { useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
+import Features from "@/components/Features";
 import HowItWorks from "@/components/HowItWorks";
 import DetailsSection from "@/components/DetailsSection";
 import TestimonialsSection from "@/components/TestimonialsSection";
-import Newsletter from "@/components/Newsletter";
 import Footer from "@/components/Footer";
 
 const Index = () => {
@@ -59,9 +59,9 @@ const Index = () => {
       <Navbar />
       <main className="space-y-4 sm:space-y-8"> {/* Reduced space on mobile */}
         <Hero />
+        <Features />
         <HowItWorks />
         <TestimonialsSection />
-        <Newsletter />
       </main>
       <Footer />
     </div>
