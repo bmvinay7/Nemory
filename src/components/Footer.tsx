@@ -15,9 +15,11 @@ const Footer = () => {
           {/* Brand Section */}
           <div className="lg:col-span-1">
             <div className="flex items-center space-x-3 mb-6">
-              <div className="w-10 h-10 bg-gradient-to-br from-pulse-500 to-pulse-600 rounded-xl flex items-center justify-center">
-                <Brain className="w-5 h-5 text-white" />
-              </div>
+              <img 
+                src="/new_logo.svg" 
+                alt="Nemory Logo" 
+                className="w-10 h-10 rounded-xl"
+              />
               <div>
                 <h3 className="font-display font-bold text-2xl">Nemory</h3>
                 <p className="text-gray-400 text-sm">AI Notes Assistant</p>

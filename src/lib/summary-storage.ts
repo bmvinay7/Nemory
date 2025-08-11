@@ -28,6 +28,8 @@ export interface SummaryDeliveryLog {
 }
 
 export class SummaryStorageService {
+  private readonly RECYCLE_BIN_DAYS = 30;
+
   /**
    * Save a summary to storage
    */
@@ -109,7 +111,7 @@ export class SummaryStorageService {
   }
 
   /**
-   * Get all summaries for a user
+   * Get all active (non-deleted) summaries for a user
    */
   async getUserSummaries(userId: string, limitCount: number = 10): Promise<SummaryResult[]> {
     try {
@@ -121,6 +123,7 @@ export class SummaryStorageService {
           const q = query(
             collection(db, 'summaries'),
             where('userId', '==', userId),
+            where('isDeleted', '!=', true),
             orderBy('createdAt', 'desc'),
             limit(limitCount)
           );
@@ -150,7 +153,10 @@ export class SummaryStorageService {
           const data = localStorage.getItem(key);
           if (data) {
             const summary = JSON.parse(data) as SummaryResult;
-            summaries.push(summary);
+            // Only include non-deleted summaries
+            if (!summary.isDeleted) {
+              summaries.push(summary);
+            }
           }
         } catch (parseError) {
           console.warn('SummaryStorage: Failed to parse summary from localStorage:', key);
@@ -170,11 +176,170 @@ export class SummaryStorageService {
   }
 
   /**
-   * Delete a summary
+   * Move summary to recycle bin (soft delete)
    */
   async deleteSummary(summaryId: string, userId: string): Promise<void> {
     try {
-      console.log('SummaryStorage: Deleting summary:', summaryId);
+      console.log('SummaryStorage: Moving summary to recycle bin:', summaryId);
+      
+      // Get the current summary
+      const summary = await this.getSummary(summaryId, userId);
+      if (!summary) {
+        throw new Error('Summary not found');
+      }
+      
+      // Mark as deleted
+      const deletedSummary: SummaryResult = {
+        ...summary,
+        isDeleted: true,
+        deletedAt: new Date().toISOString(),
+        deletedBy: userId
+      };
+      
+      // Update in localStorage
+      const localKey = `summary_${userId}_${summaryId}`;
+      localStorage.setItem(localKey, JSON.stringify(deletedSummary));
+      
+      // Update in Firestore if available
+      if (isFirestoreReady()) {
+        try {
+          const docRef = doc(db, 'summaries', summaryId);
+          await setDoc(docRef, deletedSummary);
+          console.log('SummaryStorage: Summary moved to recycle bin in Firestore');
+        } catch (firestoreError: any) {
+          console.warn('SummaryStorage: Firestore recycle bin update failed:', firestoreError.code);
+        }
+      }
+      
+    } catch (error) {
+      console.error('SummaryStorage: Error moving summary to recycle bin:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get deleted summaries (recycle bin)
+   */
+  async getDeletedSummaries(userId: string): Promise<SummaryResult[]> {
+    try {
+      console.log('SummaryStorage: Fetching deleted summaries for user:', userId);
+      
+      // Try Firestore first
+      if (isFirestoreReady()) {
+        try {
+          const q = query(
+            collection(db, 'summaries'),
+            where('userId', '==', userId),
+            where('isDeleted', '==', true),
+            orderBy('deletedAt', 'desc')
+          );
+          
+          const querySnapshot = await getDocs(q);
+          const summaries: SummaryResult[] = [];
+          
+          querySnapshot.forEach((doc) => {
+            const summary = doc.data() as SummaryResult;
+            // Check if not expired (30 days)
+            if (this.isWithinRecycleBinPeriod(summary.deletedAt!)) {
+              summaries.push(summary);
+            }
+          });
+          
+          if (summaries.length > 0) {
+            console.log(`SummaryStorage: Loaded ${summaries.length} deleted summaries from Firestore`);
+            return summaries;
+          }
+        } catch (firestoreError: any) {
+          console.warn('SummaryStorage: Firestore deleted summaries query failed:', firestoreError.code);
+        }
+      }
+      
+      // Fallback to localStorage
+      const summaries: SummaryResult[] = [];
+      const keys = Object.keys(localStorage).filter(key => key.startsWith(`summary_${userId}_`));
+      
+      for (const key of keys) {
+        try {
+          const data = localStorage.getItem(key);
+          if (data) {
+            const summary = JSON.parse(data) as SummaryResult;
+            if (summary.isDeleted && this.isWithinRecycleBinPeriod(summary.deletedAt!)) {
+              summaries.push(summary);
+            }
+          }
+        } catch (parseError) {
+          console.warn('SummaryStorage: Failed to parse deleted summary from localStorage:', key);
+        }
+      }
+      
+      // Sort by deletion date (newest first)
+      summaries.sort((a, b) => new Date(b.deletedAt!).getTime() - new Date(a.deletedAt!).getTime());
+      
+      console.log(`SummaryStorage: Loaded ${summaries.length} deleted summaries from localStorage`);
+      return summaries;
+      
+    } catch (error) {
+      console.error('SummaryStorage: Error fetching deleted summaries:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Restore summary from recycle bin
+   */
+  async restoreSummary(summaryId: string, userId: string): Promise<void> {
+    try {
+      console.log('SummaryStorage: Restoring summary from recycle bin:', summaryId);
+      
+      // Get the deleted summary
+      const summary = await this.getSummary(summaryId, userId);
+      if (!summary || !summary.isDeleted) {
+        throw new Error('Summary not found in recycle bin');
+      }
+      
+      // Check if still within restore period
+      if (!this.isWithinRecycleBinPeriod(summary.deletedAt!)) {
+        throw new Error('Summary has expired and cannot be restored');
+      }
+      
+      // Remove deletion markers
+      const restoredSummary: SummaryResult = {
+        ...summary,
+        isDeleted: false,
+        deletedAt: undefined,
+        deletedBy: undefined
+      };
+      
+      // Update in localStorage
+      const localKey = `summary_${userId}_${summaryId}`;
+      localStorage.setItem(localKey, JSON.stringify(restoredSummary));
+      
+      // Update in Firestore if available
+      if (isFirestoreReady()) {
+        try {
+          const docRef = doc(db, 'summaries', summaryId);
+          await setDoc(docRef, restoredSummary);
+          console.log('SummaryStorage: Summary restored in Firestore');
+        } catch (firestoreError: any) {
+          console.warn('SummaryStorage: Firestore restore failed:', firestoreError.code);
+        }
+      }
+      
+      // Add back to user's summary list
+      await this.updateUserSummaryList(userId, summaryId);
+      
+    } catch (error) {
+      console.error('SummaryStorage: Error restoring summary:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Permanently delete summary (cannot be undone)
+   */
+  async permanentlyDeleteSummary(summaryId: string, userId: string): Promise<void> {
+    try {
+      console.log('SummaryStorage: Permanently deleting summary:', summaryId);
       
       // Remove from localStorage
       const localKey = `summary_${userId}_${summaryId}`;
@@ -185,19 +350,65 @@ export class SummaryStorageService {
         try {
           const docRef = doc(db, 'summaries', summaryId);
           await deleteDoc(docRef);
-          console.log('SummaryStorage: Summary deleted from Firestore');
+          console.log('SummaryStorage: Summary permanently deleted from Firestore');
         } catch (firestoreError: any) {
-          console.warn('SummaryStorage: Firestore delete failed:', firestoreError.code);
+          console.warn('SummaryStorage: Firestore permanent delete failed:', firestoreError.code);
         }
       }
       
-      // Update user's summary list
+      // Remove from user's summary list
       await this.removeFromUserSummaryList(userId, summaryId);
       
     } catch (error) {
-      console.error('SummaryStorage: Error deleting summary:', error);
+      console.error('SummaryStorage: Error permanently deleting summary:', error);
       throw error;
     }
+  }
+
+  /**
+   * Clean up expired summaries from recycle bin
+   */
+  async cleanupExpiredSummaries(userId: string): Promise<number> {
+    try {
+      console.log('SummaryStorage: Cleaning up expired summaries for user:', userId);
+      
+      const deletedSummaries = await this.getDeletedSummaries(userId);
+      let cleanedCount = 0;
+      
+      for (const summary of deletedSummaries) {
+        if (!this.isWithinRecycleBinPeriod(summary.deletedAt!)) {
+          await this.permanentlyDeleteSummary(summary.id, userId);
+          cleanedCount++;
+        }
+      }
+      
+      console.log(`SummaryStorage: Cleaned up ${cleanedCount} expired summaries`);
+      return cleanedCount;
+      
+    } catch (error) {
+      console.error('SummaryStorage: Error cleaning up expired summaries:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Check if summary is within recycle bin period (30 days)
+   */
+  private isWithinRecycleBinPeriod(deletedAt: string): boolean {
+    const deletedDate = new Date(deletedAt);
+    const now = new Date();
+    const daysDiff = (now.getTime() - deletedDate.getTime()) / (1000 * 60 * 60 * 24);
+    return daysDiff <= this.RECYCLE_BIN_DAYS;
+  }
+
+  /**
+   * Get days remaining before permanent deletion
+   */
+  getDaysUntilPermanentDeletion(deletedAt: string): number {
+    const deletedDate = new Date(deletedAt);
+    const now = new Date();
+    const daysPassed = (now.getTime() - deletedDate.getTime()) / (1000 * 60 * 60 * 24);
+    return Math.max(0, this.RECYCLE_BIN_DAYS - Math.floor(daysPassed));
   }
 
   /**

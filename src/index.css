@@ -221,3 +221,12 @@
   transform: translateY(var(--parallax-y, 0));
   transition: transform 0.1s ease-out;
 }
+
+/* Radial gradient utilities for text readability overlay */
+.bg-radial-gradient {
+  background: radial-gradient(ellipse at center, transparent 20%, rgba(0, 0, 0, 0.1) 70%, transparent 100%);
+}
+
+.bg-radial-gradient-white {
+  background: radial-gradient(ellipse at center, transparent 20%, rgba(255, 255, 255, 0.15) 70%, transparent 100%);
+}

@@ -83,10 +83,11 @@ const Navbar = () => {
           aria-label="Nemory"
         >
           <div className="relative">
-            <div className="w-10 h-10 bg-gradient-to-br from-pulse-500 to-pulse-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-pulse-500/25 transition-all duration-300">
-              <Brain className="w-5 h-5 text-white" />
-            </div>
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-pulse-400 rounded-full animate-pulse"></div>
+            <img 
+              src="/new_logo.svg" 
+              alt="Nemory Logo" 
+              className="w-14 h-14 rounded-xl shadow-lg group-hover:shadow-pulse-500/25 transition-all duration-300"
+            />
           </div>
           <div className="flex flex-col">
             <span className="font-display font-bold text-xl text-gray-900 group-hover:text-pulse-600 transition-colors">

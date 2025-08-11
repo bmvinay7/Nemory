@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Brain, Mail, Lock, Eye, EyeOff, User, ArrowRight } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, User, ArrowRight } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 
 interface SignupProps {
@@ -172,9 +172,11 @@ const Signup: React.FC<SignupProps> = ({ onSwitchToLogin, onClose }) => {
       {/* Header */}
       <div className="text-center mb-8">
         <div className="flex items-center justify-center space-x-3 mb-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-pulse-500 to-pulse-600 rounded-xl flex items-center justify-center">
-            <Brain className="w-6 h-6 text-white" />
-          </div>
+          <img 
+            src="/new_logo.svg" 
+            alt="Nemory Logo" 
+            className="w-12 h-12 rounded-xl"
+          />
           <div>
             <h2 className="font-display font-bold text-2xl text-gray-900">Nemory</h2>
             <p className="text-gray-500 text-sm">AI Notes Assistant</p>

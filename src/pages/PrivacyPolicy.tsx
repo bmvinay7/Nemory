@@ -9,9 +9,11 @@ const PrivacyPolicy: React.FC = () => {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-pulse-500 to-pulse-600 rounded-xl flex items-center justify-center">
-                <Brain className="w-5 h-5 text-white" />
-              </div>
+              <img 
+                src="/new_logo.svg" 
+                alt="Nemory Logo" 
+                className="w-10 h-10 rounded-xl"
+              />
               <div>
                 <h1 className="font-display font-bold text-xl text-gray-900">Nemory</h1>
                 <p className="text-gray-500 text-xs">AI Notes Assistant</p>

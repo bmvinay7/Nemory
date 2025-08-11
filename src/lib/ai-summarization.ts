@@ -51,6 +51,10 @@ export interface SummaryResult {
   sourceContent: NotionContent[];
   wordCount: number;
   readingTime: number;
+  // Recycle bin properties
+  isDeleted?: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
 }
 
 export interface ActionItem {
@@ -83,9 +87,6 @@ export class AISummarizationService {
     recentSummaries: SummaryResult[];
   }> {
     try {
-      // Import storage service dynamically to avoid circular dependencies
-      const { summaryStorageService } = await import('./summary-storage');
-      
       // Get recent summaries (last 50)
       const recentSummaries = await summaryStorageService.getUserSummaries(userId, 50);
       
@@ -740,7 +741,6 @@ export class AISummarizationService {
 
       // Step 6: Save the summary to storage
       try {
-        const { summaryStorageService } = await import('./summary-storage');
         await summaryStorageService.saveSummary(result);
         console.log(`   💾 Summary saved to storage successfully`);
       } catch (storageError) {

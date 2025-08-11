@@ -34,19 +34,28 @@ const Hero = () => {
   
   return (
     <section 
-      className="min-h-screen flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-gray-50 via-white to-pulse-50/30" 
+      className="min-h-screen flex items-center justify-center relative overflow-hidden" 
       id="hero"
+      style={{
+        backgroundImage: `url('/Header-background.webp')`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
     >
-      {/* Background decorative elements */}
-      <div className="absolute top-20 right-20 w-72 h-72 bg-pulse-100 rounded-full opacity-30 blur-3xl animate-pulse-slow"></div>
-      <div className="absolute bottom-20 left-20 w-64 h-64 bg-purple-100 rounded-full opacity-40 blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-pulse-50 to-orange-50 rounded-full opacity-20 blur-3xl"></div>
+      {/* Text readability overlay - subtle brightening in center area only */}
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/20 to-transparent"></div>
+      <div className="absolute inset-0 bg-radial-gradient-white from-transparent via-white/15 to-transparent opacity-70"></div>
+      
+      {/* Subtle decorative elements */}
+      <div className="absolute top-20 right-20 w-72 h-72 bg-white/10 rounded-full opacity-20 blur-3xl animate-pulse-slow"></div>
+      <div className="absolute bottom-20 left-20 w-64 h-64 bg-white/10 rounded-full opacity-30 blur-3xl animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
       
       <div className="container px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="text-center max-w-5xl mx-auto">
           {/* Badge */}
           <div 
-            className="inline-flex items-center px-4 py-2 rounded-full bg-pulse-100 text-pulse-700 text-sm font-medium mb-8 opacity-0 animate-fade-in border border-pulse-200" 
+            className="inline-flex items-center px-4 py-2 rounded-full bg-pulse-50 text-pulse-700 text-sm font-medium mb-8 opacity-0 animate-fade-in border border-pulse-200 shadow-sm relative z-10" 
             style={{ animationDelay: "0.1s" }}
           >
             <Brain className="w-4 h-4 mr-2" />
@@ -56,11 +65,17 @@ const Hero = () => {
           
           {/* Main Heading */}
           <h1 
-            className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-display font-bold text-gray-900 leading-tight mb-6 opacity-0 animate-fade-in" 
+            className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-display font-bold leading-tight mb-6 opacity-0 animate-fade-in drop-shadow-lg relative z-10" 
             style={{ animationDelay: "0.3s" }}
           >
-            Nemory: Your Notes,<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-pulse-600 to-orange-500">
+            <span style={{ 
+              color: "#F8F8FF",
+              WebkitTextStroke: "0.1px #FF6B35",
+              textStroke: "0.1px #FF6B35"
+            }}>
+              Nemory: Your Notes,
+            </span><br />
+            <span style={{ color: "#FFD700", opacity: 0.8 }} className="drop-shadow-lg">
               Perfected & Delivered
             </span>
           </h1>
@@ -90,7 +105,7 @@ const Hero = () => {
             
             <a 
               href="#how-it-works" 
-              className="inline-flex items-center px-8 py-4 bg-white text-gray-700 font-semibold rounded-full border-2 border-gray-200 hover:border-pulse-300 hover:text-pulse-600 transition-all duration-300 shadow-md hover:shadow-lg"
+              className="inline-flex items-center px-8 py-4 bg-white/90 backdrop-blur-sm text-gray-700 font-semibold rounded-full border-2 border-white/30 hover:border-pulse-300 hover:text-pulse-600 transition-all duration-300 shadow-lg hover:shadow-xl"
             >
               Learn How It Works
             </a>
@@ -101,17 +116,17 @@ const Hero = () => {
             className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto opacity-0 animate-fade-in" 
             style={{ animationDelay: "0.9s" }}
           >
-            <div className="flex items-center justify-center space-x-3 p-4 bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-100 shadow-sm">
+            <div className="flex items-center justify-center space-x-3 p-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-white/30 shadow-lg">
               <Brain className="w-6 h-6 text-pulse-500" />
               <span className="font-medium text-gray-700">AI Analysis</span>
             </div>
             
-            <div className="flex items-center justify-center space-x-3 p-4 bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-100 shadow-sm">
+            <div className="flex items-center justify-center space-x-3 p-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-white/30 shadow-lg">
               <Mail className="w-6 h-6 text-pulse-500" />
               <span className="font-medium text-gray-700">Email Delivery</span>
             </div>
             
-            <div className="flex items-center justify-center space-x-3 p-4 bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-100 shadow-sm">
+            <div className="flex items-center justify-center space-x-3 p-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-white/30 shadow-lg">
               <MessageCircle className="w-6 h-6 text-pulse-500" />
               <span className="font-medium text-gray-700">WhatsApp Alerts</span>
             </div>

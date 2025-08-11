@@ -25,7 +25,10 @@ import {
   Play,
   History,
   Download,
-  Trash2
+  Trash2,
+  Eye,
+  RotateCcw,
+  Trash
 } from 'lucide-react';
 
 const AISummarization: React.FC = () => {
@@ -34,8 +37,10 @@ const AISummarization: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentSummary, setCurrentSummary] = useState<SummaryResult | null>(null);
   const [summaryHistory, setSummaryHistory] = useState<SummaryResult[]>([]);
+  const [deletedSummaries, setDeletedSummaries] = useState<SummaryResult[]>([]);
   const [preferences, setPreferences] = useState<SummaryPreferences | null>(null);
   const [isLoadingPreferences, setIsLoadingPreferences] = useState(true);
+  const [activeTab, setActiveTab] = useState('current');
 
   const loadUserPreferences = useCallback(async () => {
     if (!currentUser) return;
@@ -67,13 +72,33 @@ const AISummarization: React.FC = () => {
     }
   }, [currentUser]);
 
+  const loadDeletedSummaries = useCallback(async () => {
+    if (!currentUser) return;
+    
+    try {
+      const deleted = await summaryStorageService.getDeletedSummaries(currentUser.uid);
+      setDeletedSummaries(deleted);
+    } catch (error) {
+      console.error('Failed to load deleted summaries:', error);
+    }
+  }, [currentUser]);
+
   // Run effect after callbacks are defined to avoid TDZ errors
   useEffect(() => {
     if (currentUser) {
       loadUserPreferences();
       loadSummaryHistory();
+      loadDeletedSummaries();
+      
+      // Run cleanup on load (but don't await it)
+      summaryStorageService.cleanupExpiredSummaries(currentUser.uid).then(cleanedCount => {
+        if (cleanedCount > 0) {
+          console.log(`Cleaned up ${cleanedCount} expired summaries`);
+          loadDeletedSummaries(); // Refresh after cleanup
+        }
+      });
     }
-  }, [currentUser, loadUserPreferences, loadSummaryHistory]);
+  }, [currentUser, loadUserPreferences, loadSummaryHistory, loadDeletedSummaries]);
 
   const savePreferences = async (newPreferences: Partial<SummaryPreferences>) => {
     if (!currentUser || !preferences) return;
@@ -147,6 +172,7 @@ const AISummarization: React.FC = () => {
       
       setCurrentSummary(summary);
       await loadSummaryHistory(); // Refresh history
+      await loadDeletedSummaries(); // Refresh recycle bin
 
       toast({
         title: "Summary generated successfully!",
@@ -165,6 +191,15 @@ const AISummarization: React.FC = () => {
     }
   };
 
+  const viewSummary = (summary: SummaryResult) => {
+    setCurrentSummary(summary);
+    setActiveTab('current');
+    toast({
+      title: "Summary loaded",
+      description: "Viewing summary in Current Summary tab",
+    });
+  };
+
   const deleteSummary = async (summaryId: string) => {
     if (!currentUser) return;
     
@@ -176,15 +211,61 @@ const AISummarization: React.FC = () => {
       }
       
       await loadSummaryHistory();
+      await loadDeletedSummaries();
       
       toast({
-        title: "Summary deleted",
-        description: "The summary has been removed from your history",
+        title: "Summary moved to recycle bin",
+        description: "You can restore it within 30 days from the Recycle Bin tab",
       });
     } catch (error) {
       console.error('Failed to delete summary:', error);
       toast({
         title: "Error deleting summary",
+        description: "Please try again",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const restoreSummary = async (summaryId: string) => {
+    if (!currentUser) return;
+    
+    try {
+      await summaryStorageService.restoreSummary(summaryId, currentUser.uid);
+      
+      await loadSummaryHistory();
+      await loadDeletedSummaries();
+      
+      toast({
+        title: "Summary restored",
+        description: "The summary has been restored to your history",
+      });
+    } catch (error) {
+      console.error('Failed to restore summary:', error);
+      toast({
+        title: "Error restoring summary",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const permanentlyDeleteSummary = async (summaryId: string) => {
+    if (!currentUser) return;
+    
+    try {
+      await summaryStorageService.permanentlyDeleteSummary(summaryId, currentUser.uid);
+      
+      await loadDeletedSummaries();
+      
+      toast({
+        title: "Summary permanently deleted",
+        description: "This action cannot be undone",
+      });
+    } catch (error) {
+      console.error('Failed to permanently delete summary:', error);
+      toast({
+        title: "Error permanently deleting summary",
         description: "Please try again",
         variant: "destructive"
       });
@@ -298,11 +379,20 @@ const AISummarization: React.FC = () => {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="current" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="current">Current Summary</TabsTrigger>
           <TabsTrigger value="settings">Preferences</TabsTrigger>
           <TabsTrigger value="history">History</TabsTrigger>
+          <TabsTrigger value="recycle-bin" className="flex items-center space-x-1">
+            <Trash2 className="w-4 h-4" />
+            <span>Recycle Bin</span>
+            {deletedSummaries.length > 0 && (
+              <Badge variant="secondary" className="ml-1 text-xs">
+                {deletedSummaries.length}
+              </Badge>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="current" className="space-y-4">
@@ -609,15 +699,20 @@ const AISummarization: React.FC = () => {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => setCurrentSummary(summary)}
+                              onClick={() => viewSummary(summary)}
                             >
-                              <Download className="w-4 h-4 mr-1" />
+                              <Eye className="w-4 h-4 mr-1" />
                               View
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => deleteSummary(summary.id)}
+                              onClick={() => {
+                                if (window.confirm('Move this summary to recycle bin? You can restore it within 30 days.')) {
+                                  deleteSummary(summary.id);
+                                }
+                              }}
+                              title="Move to recycle bin"
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
@@ -654,6 +749,121 @@ const AISummarization: React.FC = () => {
                   <h3 className="font-medium text-gray-900 mb-2">No summaries yet</h3>
                   <p className="text-gray-600">
                     Generated summaries will appear here for easy access
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="recycle-bin" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Trash2 className="w-5 h-5" />
+                <span>Recycle Bin</span>
+              </CardTitle>
+              <CardDescription>
+                Deleted summaries are kept for 30 days before permanent deletion
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {deletedSummaries.length > 0 ? (
+                <ScrollArea className="h-96">
+                  <div className="space-y-4">
+                    {deletedSummaries.map((summary) => {
+                      const daysLeft = summaryStorageService.getDaysUntilPermanentDeletion(summary.deletedAt!);
+                      return (
+                        <div
+                          key={summary.id}
+                          className="border rounded-lg p-4 bg-red-50 border-red-200 hover:bg-red-100 transition-colors"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center space-x-2">
+                              <Badge variant="destructive">
+                                Deleted
+                              </Badge>
+                              <Badge variant="outline">
+                                {daysLeft} days left
+                              </Badge>
+                              <span className="text-sm text-gray-600">
+                                Deleted on {new Date(summary.deletedAt!).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => viewSummary(summary)}
+                                className="bg-white hover:bg-gray-50"
+                              >
+                                <Eye className="w-4 h-4 mr-1" />
+                                View
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={() => {
+                                  if (window.confirm('Are you sure you want to restore this summary?')) {
+                                    restoreSummary(summary.id);
+                                  }
+                                }}
+                                className="bg-green-600 hover:bg-green-700"
+                              >
+                                <RotateCcw className="w-4 h-4 mr-1" />
+                                Restore
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => {
+                                  if (window.confirm('Are you sure you want to permanently delete this summary? This action cannot be undone.')) {
+                                    permanentlyDeleteSummary(summary.id);
+                                  }
+                                }}
+                              >
+                                <Trash className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          
+                          <p className="text-sm text-gray-800 line-clamp-2 mb-2">
+                            {summary.summary.substring(0, 150)}...
+                          </p>
+                          
+                          <div className="flex items-center space-x-4 text-xs text-gray-500">
+                            <span>{summary.wordCount} words</span>
+                            <span>{summary.readingTime} min read</span>
+                            <span>{summary.actionItems.length} actions</span>
+                            <span>{summary.sourceContent.length} sources</span>
+                          </div>
+                          
+                          {summary.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {summary.tags.map((tag, index) => (
+                                <Badge key={index} variant="outline" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {daysLeft <= 7 && (
+                            <div className="mt-2 p-2 bg-orange-100 border border-orange-200 rounded text-xs text-orange-800">
+                              ⚠️ This summary will be permanently deleted in {daysLeft} day{daysLeft !== 1 ? 's' : ''}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </ScrollArea>
+              ) : (
+                <div className="text-center py-8">
+                  <Trash2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="font-medium text-gray-900 mb-2">Recycle bin is empty</h3>
+                  <p className="text-gray-600">
+                    Deleted summaries will appear here and can be restored within 30 days
                   </p>
                 </div>
               )}
