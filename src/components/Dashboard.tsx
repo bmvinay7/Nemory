@@ -1,14 +1,19 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { Brain, LogOut, Settings, FileText, Mail, MessageCircle, BarChart3, User } from 'lucide-react';
+import { useMetrics } from '@/contexts/MetricsContext';
+import { Brain, LogOut, Settings, FileText, Mail, MessageCircle, BarChart3, User, RefreshCw } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import NotionConnect from './notion/NotionConnect';
 import AISummarization from './ai/AISummarization';
 import AccountLinking from './auth/AccountLinking';
 
 const Dashboard: React.FC = () => {
   const { currentUser, logout } = useAuth();
+  const { metrics, loading: metricsLoading, refreshMetrics } = useMetrics();
   const [activeTab, setActiveTab] = useState<'overview' | 'settings'>('overview');
+  const [refreshing, setRefreshing] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -23,6 +28,25 @@ const Dashboard: React.FC = () => {
         description: "Please try again.",
         variant: "destructive"
       });
+    }
+  };
+
+  const handleRefreshMetrics = async () => {
+    setRefreshing(true);
+    try {
+      await refreshMetrics();
+      toast({
+        title: "Metrics refreshed",
+        description: "Your dashboard metrics have been updated."
+      });
+    } catch (error) {
+      toast({
+        title: "Refresh failed",
+        description: "Could not refresh metrics. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -96,52 +120,160 @@ const Dashboard: React.FC = () => {
           <>
             {/* Welcome Section */}
             <div className="mb-8">
-              <h2 className="text-3xl font-display font-bold text-gray-900 mb-2">
-                Welcome back, {currentUser?.displayName?.split(' ')[0] || 'there'}!
-              </h2>
-              <p className="text-gray-600">
-                Your AI-powered notes assistant is ready to help you transform your Notion notes into actionable insights.
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-3xl font-display font-bold text-gray-900 mb-2">
+                    Welcome back, {currentUser?.displayName?.split(' ')[0] || 'there'}!
+                  </h2>
+                  <p className="text-gray-600">
+                    Your AI-powered notes assistant is ready to help you transform your Notion notes into actionable insights.
+                  </p>
+                </div>
+                <button
+                  onClick={handleRefreshMetrics}
+                  disabled={refreshing || metricsLoading}
+                  className="flex items-center space-x-2 px-4 py-2 bg-pulse-500 text-white rounded-lg hover:bg-pulse-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                  <span>Refresh</span>
+                </button>
+              </div>
             </div>
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
                 <div className="flex items-center space-x-3">
                   <div className="w-12 h-12 bg-pulse-100 rounded-lg flex items-center justify-center">
                     <FileText className="w-6 h-6 text-pulse-600" />
                   </div>
-                  <div>
-                    <p className="text-2xl font-bold text-gray-900">0</p>
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2">
+                      <p className="text-2xl font-bold text-gray-900">
+                        {metricsLoading ? (
+                          <div className="w-8 h-8 bg-gray-200 rounded animate-pulse"></div>
+                        ) : (
+                          metrics.notesProcessed.toLocaleString()
+                        )}
+                      </p>
+                      {!metricsLoading && metrics.notesProcessed > 0 && (
+                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                          Active
+                        </span>
+                      )}
+                    </div>
                     <p className="text-gray-600 text-sm">Notes Processed</p>
+                    {!metricsLoading && metrics.lastUpdated && (
+                      <p className="text-xs text-gray-400 mt-1">
+                        Last updated: {metrics.lastUpdated.toLocaleDateString()}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
                 <div className="flex items-center space-x-3">
                   <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                     <Mail className="w-6 h-6 text-blue-600" />
                   </div>
-                  <div>
-                    <p className="text-2xl font-bold text-gray-900">0</p>
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2">
+                      <p className="text-2xl font-bold text-gray-900">
+                        {metricsLoading ? (
+                          <div className="w-8 h-8 bg-gray-200 rounded animate-pulse"></div>
+                        ) : (
+                          metrics.summariesSent.toLocaleString()
+                        )}
+                      </p>
+                      {!metricsLoading && metrics.summariesSent > 0 && (
+                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                          Sent
+                        </span>
+                      )}
+                    </div>
                     <p className="text-gray-600 text-sm">Summaries Sent</p>
+                    {!metricsLoading && metrics.summariesSent > 0 && (
+                      <p className="text-xs text-gray-400 mt-1">
+                        Email & WhatsApp
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+              <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
                 <div className="flex items-center space-x-3">
                   <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                     <BarChart3 className="w-6 h-6 text-green-600" />
                   </div>
-                  <div>
-                    <p className="text-2xl font-bold text-gray-900">0</p>
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2">
+                      <p className="text-2xl font-bold text-gray-900">
+                        {metricsLoading ? (
+                          <div className="w-8 h-8 bg-gray-200 rounded animate-pulse"></div>
+                        ) : (
+                          metrics.actionItems.toLocaleString()
+                        )}
+                      </p>
+                      {!metricsLoading && metrics.actionItems > 0 && (
+                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                          Generated
+                        </span>
+                      )}
+                    </div>
                     <p className="text-gray-600 text-sm">Action Items</p>
+                    {!metricsLoading && metrics.actionItems > 0 && (
+                      <p className="text-xs text-gray-400 mt-1">
+                        From AI analysis
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
+
+            {/* Quick Actions for Testing */}
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle className="text-lg">Quick Actions</CardTitle>
+                <CardDescription>Test the metrics functionality</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      const { incrementNotesProcessed } = await import('@/contexts/MetricsContext');
+                      // This won't work directly, we need to use the hook
+                      toast({
+                        title: "Use the AI Summarization feature",
+                        description: "Generate a summary to see metrics update automatically",
+                      });
+                    }}
+                    className="flex items-center space-x-2"
+                  >
+                    <FileText className="w-4 h-4" />
+                    <span>Process Note</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      toast({
+                        title: "Use the delivery buttons",
+                        description: "Send summaries via email or WhatsApp to update metrics",
+                      });
+                    }}
+                    className="flex items-center space-x-2"
+                  >
+                    <Mail className="w-4 h-4" />
+                    <span>Send Summary</span>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Notion Integration */}
             <NotionConnect />

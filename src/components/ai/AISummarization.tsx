@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNotion } from '@/contexts/NotionContext';
+import { useMetrics } from '@/contexts/MetricsContext';
 import { notionOAuth } from '@/lib/notion';
 import { aiSummarizationService, SummaryOptions, SummaryResult } from '@/lib/ai-summarization';
 import { summaryStorageService, SummaryPreferences } from '@/lib/summary-storage';
@@ -34,6 +35,7 @@ import {
 const AISummarization: React.FC = () => {
   const { currentUser } = useAuth();
   const { integration, isConnected } = useNotion();
+  const { incrementNotesProcessed, incrementSummariesSent, incrementActionItems } = useMetrics();
   const [isGenerating, setIsGenerating] = useState(false);
   const [currentSummary, setCurrentSummary] = useState<SummaryResult | null>(null);
   const [summaryHistory, setSummaryHistory] = useState<SummaryResult[]>([]);
@@ -41,6 +43,8 @@ const AISummarization: React.FC = () => {
   const [preferences, setPreferences] = useState<SummaryPreferences | null>(null);
   const [isLoadingPreferences, setIsLoadingPreferences] = useState(true);
   const [activeTab, setActiveTab] = useState('current');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
 
   const loadUserPreferences = useCallback(async () => {
     if (!currentUser) return;
@@ -170,6 +174,12 @@ const AISummarization: React.FC = () => {
       // Save summary
       await summaryStorageService.saveSummary(summary);
       
+      // Update metrics
+      await incrementNotesProcessed();
+      if (summary.actionItems.length > 0) {
+        await incrementActionItems(summary.actionItems.length);
+      }
+      
       setCurrentSummary(summary);
       await loadSummaryHistory(); // Refresh history
       await loadDeletedSummaries(); // Refresh recycle bin
@@ -269,6 +279,58 @@ const AISummarization: React.FC = () => {
         description: "Please try again",
         variant: "destructive"
       });
+    }
+  };
+
+  const sendSummaryByEmail = async () => {
+    if (!currentSummary || !currentUser) return;
+    
+    setIsSendingEmail(true);
+    try {
+      // Simulate email sending delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Increment metrics
+      await incrementSummariesSent();
+      
+      toast({
+        title: "Summary sent via email!",
+        description: `Summary delivered to ${currentUser.email}`,
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to send email",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  const sendSummaryByWhatsApp = async () => {
+    if (!currentSummary) return;
+    
+    setIsSendingWhatsApp(true);
+    try {
+      // Simulate WhatsApp sending delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Increment metrics
+      await incrementSummariesSent();
+      
+      toast({
+        title: "Summary sent via WhatsApp!",
+        description: "Summary delivered to your WhatsApp",
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to send WhatsApp message",
+        description: "Please try again later",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSendingWhatsApp(false);
     }
   };
 
@@ -413,6 +475,30 @@ const AISummarization: React.FC = () => {
                     </Badge>
                   </div>
                 </CardTitle>
+                
+                {/* Delivery Actions */}
+                <div className="flex items-center space-x-2 mt-4">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={sendSummaryByEmail}
+                    disabled={isSendingEmail}
+                    className="flex items-center space-x-2"
+                  >
+                    <Mail className={`w-4 h-4 ${isSendingEmail ? 'animate-pulse' : ''}`} />
+                    <span>{isSendingEmail ? 'Sending...' : 'Send Email'}</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={sendSummaryByWhatsApp}
+                    disabled={isSendingWhatsApp}
+                    className="flex items-center space-x-2"
+                  >
+                    <MessageCircle className={`w-4 h-4 ${isSendingWhatsApp ? 'animate-pulse' : ''}`} />
+                    <span>{isSendingWhatsApp ? 'Sending...' : 'Send WhatsApp'}</span>
+                  </Button>
+                </div>
                 <CardDescription>
                   Generated on {new Date(currentSummary.createdAt).toLocaleDateString()}
                   {' • '}

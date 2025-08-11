@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { NotionProvider } from "@/contexts/NotionContext";
+import { MetricsProvider } from "@/contexts/MetricsContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Index from "./pages/Index";
 import Dashboard from "./components/Dashboard";
@@ -20,8 +21,9 @@ const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <NotionProvider>
-          <TooltipProvider>
+        <MetricsProvider>
+          <NotionProvider>
+            <TooltipProvider>
             <Toaster />
             <Sonner />
             <BrowserRouter>
@@ -49,8 +51,9 @@ const App = () => (
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
-          </TooltipProvider>
-        </NotionProvider>
+            </TooltipProvider>
+          </NotionProvider>
+        </MetricsProvider>
       </AuthProvider>
     </QueryClientProvider>
   </ErrorBoundary>
