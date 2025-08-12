@@ -2,7 +2,6 @@ import * as React from "react"
 import * as ToastPrimitives from "@radix-ui/react-toast"
 import { cva, type VariantProps } from "class-variance-authority"
 import { X } from "lucide-react"
-
 import { cn } from "@/lib/utils"
 
 const ToastProvider = ToastPrimitives.Provider
@@ -86,32 +85,33 @@ const ToastClose = React.forwardRef<
 ))
 ToastClose.displayName = ToastPrimitives.Close.displayName
 
-const ToastTitle = React.forwardRef<
-  React.ElementRef<typeof ToastPrimitives.Title>,
-  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Title>
+// Safe title component - uses div instead of h1/h2/etc
+const SafeToastTitle = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <ToastPrimitives.Title
+  <div
     ref={ref}
     className={cn("text-sm font-semibold", className)}
     {...props}
   />
 ))
-ToastTitle.displayName = ToastPrimitives.Title.displayName
+SafeToastTitle.displayName = "SafeToastTitle"
 
-const ToastDescription = React.forwardRef<
-  React.ElementRef<typeof ToastPrimitives.Description>,
-  React.ComponentPropsWithoutRef<typeof ToastPrimitives.Description>
+// Safe description component - uses div instead of p
+const SafeToastDescription = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <ToastPrimitives.Description
+  <div
     ref={ref}
     className={cn("text-sm opacity-90", className)}
     {...props}
   />
 ))
-ToastDescription.displayName = ToastPrimitives.Description.displayName
+SafeToastDescription.displayName = "SafeToastDescription"
 
 type ToastProps = React.ComponentPropsWithoutRef<typeof Toast>
-
 type ToastActionElement = React.ReactElement<typeof ToastAction>
 
 export {
@@ -120,8 +120,8 @@ export {
   ToastProvider,
   ToastViewport,
   Toast,
-  ToastTitle,
-  ToastDescription,
+  SafeToastTitle as ToastTitle,
+  SafeToastDescription as ToastDescription,
   ToastClose,
   ToastAction,
 }

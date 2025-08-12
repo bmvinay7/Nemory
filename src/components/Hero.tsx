@@ -2,14 +2,13 @@
 import React, { useEffect, useState } from "react";
 import { ArrowRight, Brain, Zap, Mail, MessageCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useNavigate } from "react-router-dom";
-import AuthModal from "./auth/AuthModal";
 
 const Hero = () => {
   const [isMobile, setIsMobile] = useState(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
   const { currentUser } = useAuth();
+  const { openModal } = useAuthModal();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -27,8 +26,7 @@ const Hero = () => {
     if (currentUser) {
       navigate('/dashboard');
     } else {
-      setAuthMode('signup');
-      setIsAuthModalOpen(true);
+      openModal('signup');
     }
   };
   
@@ -86,7 +84,7 @@ const Hero = () => {
             style={{ animationDelay: "0.5s" }}
           >
             Transform your Notion notes into actionable insights with AI-powered analysis. 
-            Get personalized summaries delivered to your inbox and WhatsApp.
+            Get personalized summaries delivered instantly to your Telegram.
           </p>
           
           {/* CTA Buttons */}
@@ -122,24 +120,18 @@ const Hero = () => {
             </div>
             
             <div className="flex items-center justify-center space-x-3 p-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-white/30 shadow-lg">
-              <Mail className="w-6 h-6 text-pulse-500" />
-              <span className="font-medium text-gray-700">Email Delivery</span>
+              <MessageCircle className="w-6 h-6 text-blue-500" />
+              <span className="font-medium text-gray-700">Telegram Delivery</span>
             </div>
             
             <div className="flex items-center justify-center space-x-3 p-4 bg-white/80 backdrop-blur-sm rounded-2xl border border-white/30 shadow-lg">
-              <MessageCircle className="w-6 h-6 text-pulse-500" />
-              <span className="font-medium text-gray-700">WhatsApp Alerts</span>
+              <Zap className="w-6 h-6 text-pulse-500" />
+              <span className="font-medium text-gray-700">Instant Alerts</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Auth Modal */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        initialMode={authMode}
-      />
     </section>
   );
 };

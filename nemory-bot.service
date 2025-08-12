@@ -1,0 +1,21 @@
+[Unit]
+Description=Nemory Telegram Bot
+After=network.target
+
+[Service]
+Type=simple
+User=your-username
+WorkingDirectory=/path/to/your/Nemory-dir
+ExecStart=/usr/bin/node telegram-polling-bot.js
+Restart=always
+RestartSec=10
+Environment=NODE_ENV=production
+EnvironmentFile=/path/to/your/Nemory-dir/.env
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=nemory-bot
+
+[Install]
+WantedBy=multi-user.target

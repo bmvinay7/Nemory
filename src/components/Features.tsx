@@ -95,10 +95,10 @@ const Features = () => {
             <span>Features</span>
           </div>
           <h2 className="section-title mb-3 sm:mb-4 opacity-0 fade-in-element">
-            Intelligent Processing, <br className="hidden sm:block" />Meaningful Delivery
+            Intelligent Processing, <br className="hidden sm:block" />Instant Telegram Delivery
           </h2>
           <p className="section-subtitle mx-auto opacity-0 fade-in-element">
-            Powered by advanced AI to transform your scattered notes into organized, actionable insights.
+            Powered by advanced AI to transform your scattered notes into organized insights delivered directly to your Telegram.
           </p>
         </div>
         
@@ -116,27 +116,27 @@ const Features = () => {
             index={1}
           />
           <FeatureCard
-            icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 sm:w-6 sm:h-6"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>}
-            title="Email Summaries"
-            description="Receive personalized note summaries and insights directly in your Gmail inbox on your schedule."
+            icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 sm:w-6 sm:h-6"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>}
+            title="Telegram Delivery"
+            description="Get instant access to your key notes and insights delivered directly to your Telegram chat."
             index={2}
           />
           <FeatureCard
-            icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 sm:w-6 sm:h-6"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>}
-            title="WhatsApp Delivery"
-            description="Get instant access to your key notes and reminders through WhatsApp messages on-the-go."
+            icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 sm:w-6 sm:h-6"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>}
+            title="Instant Notifications"
+            description="Real-time delivery ensures you never miss important insights from your notes and action items."
             index={3}
           />
           <FeatureCard
             icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 sm:w-6 sm:h-6"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path><path d="M9 12l2 2 4-4"></path></svg>}
-            title="Smart Scheduling"
-            description="Customizable delivery times and frequency to ensure you get your insights exactly when you need them."
+            title="Secure & Private"
+            description="End-to-end encrypted delivery through Telegram ensures your notes and insights remain completely private."
             index={4}
           />
           <FeatureCard
             icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 sm:w-6 sm:h-6"><path d="M16 3l4 4-4 4"></path><path d="M20 7H4"></path><path d="M8 21l-4-4 4-4"></path><path d="M4 17h16"></path></svg>}
             title="Action-Oriented"
-            description="Focuses on implementation over collection - turning your notes into actionable next steps and reminders."
+            description="Focuses on implementation over collection - turning your notes into actionable next steps delivered to Telegram."
             index={5}
           />
         </div>

@@ -79,8 +79,8 @@ const HowItWorks = () => {
     },
     {
       number: "04",
-      title: "Delivery & Action",
-      description: "Receive your insights via Gmail and WhatsApp on your schedule, so you never miss important information.",
+      title: "Telegram Delivery",
+      description: "Receive your insights instantly via Telegram on your schedule, so you never miss important information.",
       image: "/delivery-action.png",
       icon: <Send className="w-6 h-6" />
     }
@@ -135,7 +135,7 @@ const HowItWorks = () => {
           </div>
           <h2 className="section-title mb-4">From Notes to Action in 4 Steps</h2>
           <p className="section-subtitle mx-auto">
-            Transform your scattered Notion notes into organized, actionable insights delivered right to your inbox.
+            Transform your scattered Notion notes into organized, actionable insights delivered instantly to your Telegram.
           </p>
         </div>
         

@@ -4,10 +4,12 @@ import { useMetrics } from '@/contexts/MetricsContext';
 import { Brain, LogOut, Settings, FileText, Mail, MessageCircle, BarChart3, User, RefreshCw } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/safe-card';
 import NotionConnect from './notion/NotionConnect';
 import AISummarization from './ai/AISummarization';
 import AccountLinking from './auth/AccountLinking';
+import TelegramSettings from './telegram/TelegramSettings';
+import TelegramConnectionStatus from './telegram/TelegramConnectionStatus';
 
 const Dashboard: React.FC = () => {
   const { currentUser, logout } = useAuth();
@@ -59,9 +61,9 @@ const Dashboard: React.FC = () => {
             {/* Logo */}
             <div className="flex items-center space-x-3">
               <img 
-                src="/new_logo.svg" 
+                src="/nlogo.png" 
                 alt="Nemory Logo" 
-                className="w-10 h-10 rounded-xl"
+                className="w-12 h-12 object-contain"
               />
               <div>
                 <h1 className="font-display font-bold text-xl text-gray-900">Nemory</h1>
@@ -97,10 +99,10 @@ const Dashboard: React.FC = () => {
               </nav>
 
               <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">
+                <div className="text-sm font-medium text-gray-900">
                   {currentUser?.displayName || 'User'}
-                </p>
-                <p className="text-xs text-gray-500">{currentUser?.email}</p>
+                </div>
+                <div className="text-xs text-gray-500">{currentUser?.email}</div>
               </div>
               <button
                 onClick={handleLogout}
@@ -126,7 +128,7 @@ const Dashboard: React.FC = () => {
                     Welcome back, {currentUser?.displayName?.split(' ')[0] || 'there'}!
                   </h2>
                   <p className="text-gray-600">
-                    Your AI-powered notes assistant is ready to help you transform your Notion notes into actionable insights.
+                    Your AI-powered notes assistant is ready to deliver actionable insights directly to your Telegram.
                   </p>
                 </div>
                 <button
@@ -175,7 +177,7 @@ const Dashboard: React.FC = () => {
               <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
                 <div className="flex items-center space-x-3">
                   <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Mail className="w-6 h-6 text-blue-600" />
+                    <MessageCircle className="w-6 h-6 text-blue-600" />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center space-x-2">
@@ -188,14 +190,14 @@ const Dashboard: React.FC = () => {
                       </p>
                       {!metricsLoading && metrics.summariesSent > 0 && (
                         <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                          Sent
+                          Delivered
                         </span>
                       )}
                     </div>
-                    <p className="text-gray-600 text-sm">Summaries Sent</p>
+                    <p className="text-gray-600 text-sm">Summaries Delivered</p>
                     {!metricsLoading && metrics.summariesSent > 0 && (
                       <p className="text-xs text-gray-400 mt-1">
-                        Email & WhatsApp
+                        Via Telegram
                       </p>
                     )}
                   </div>
@@ -263,23 +265,26 @@ const Dashboard: React.FC = () => {
                     onClick={() => {
                       toast({
                         title: "Use the delivery buttons",
-                        description: "Send summaries via email or WhatsApp to update metrics",
+                        description: "Send summaries via Telegram to update metrics",
                       });
                     }}
                     className="flex items-center space-x-2"
                   >
-                    <Mail className="w-4 h-4" />
-                    <span>Send Summary</span>
+                    <MessageCircle className="w-4 h-4" />
+                    <span>Send to Telegram</span>
                   </Button>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Notion Integration */}
-            <NotionConnect />
+            {/* Telegram Connection Status */}
+            <TelegramConnectionStatus onNavigateToSettings={() => setActiveTab('settings')} />
             
             {/* AI Summarization */}
             <AISummarization />
+            
+            {/* Notion Integration */}
+            <NotionConnect />
           </>
         ) : (
           <>
@@ -292,8 +297,12 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* Settings Content */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <AccountLinking />
+            <div className="space-y-6">
+              <TelegramSettings />
+              
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <AccountLinking />
+              </div>
             </div>
           </>
         )}

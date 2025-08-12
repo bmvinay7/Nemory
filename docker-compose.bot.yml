@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  telegram-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.bot
+    container_name: nemory-telegram-bot
+    restart: unless-stopped
+    environment:
+      - VITE_TELEGRAM_BOT_TOKEN=${VITE_TELEGRAM_BOT_TOKEN}
+      - NODE_ENV=production
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - nemory-network
+
+networks:
+  nemory-network:
+    driver: bridge

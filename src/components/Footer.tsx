@@ -14,11 +14,11 @@ const Footer = () => {
           
           {/* Brand Section */}
           <div className="lg:col-span-1">
-            <div className="flex items-center space-x-3 mb-6">
+            <div className="flex items-center space-x-4 mb-6">
               <img 
-                src="/new_logo.svg" 
+                src="/nlogo.png" 
                 alt="Nemory Logo" 
-                className="w-10 h-10 rounded-xl"
+                className="w-14 h-14 object-contain"
               />
               <div>
                 <h3 className="font-display font-bold text-2xl">Nemory</h3>
@@ -27,7 +27,7 @@ const Footer = () => {
             </div>
             <p className="text-gray-300 leading-relaxed mb-6 max-w-md">
               Transform your Notion notes into actionable insights with AI-powered analysis. 
-              Get personalized summaries delivered right to your inbox.
+              Get personalized summaries delivered instantly to your Telegram.
             </p>
             
             {/* Social Links */}
@@ -53,12 +53,12 @@ const Footer = () => {
                 <span className="text-gray-300">AI-Powered Analysis</span>
               </div>
               <div className="flex items-center space-x-3">
-                <Mail className="w-5 h-5 text-pulse-400" />
-                <span className="text-gray-300">Email Summaries</span>
+                <MessageCircle className="w-5 h-5 text-blue-400" />
+                <span className="text-gray-300">Telegram Delivery</span>
               </div>
               <div className="flex items-center space-x-3">
-                <MessageCircle className="w-5 h-5 text-pulse-400" />
-                <span className="text-gray-300">WhatsApp Delivery</span>
+                <Mail className="w-5 h-5 text-pulse-400" />
+                <span className="text-gray-300">Email Backup</span>
               </div>
             </div>
           </div>

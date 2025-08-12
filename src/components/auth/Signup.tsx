@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAuthModal } from '@/contexts/AuthModalContext';
 import { Mail, Lock, Eye, EyeOff, User, ArrowRight } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 
@@ -18,6 +19,7 @@ const Signup: React.FC<SignupProps> = ({ onSwitchToLogin, onClose }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { openModal } = useAuthModal();
   const { signup, loginWithGoogle } = useAuth();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -171,11 +173,11 @@ const Signup: React.FC<SignupProps> = ({ onSwitchToLogin, onClose }) => {
     <div className="w-full max-w-md mx-auto">
       {/* Header */}
       <div className="text-center mb-8">
-        <div className="flex items-center justify-center space-x-3 mb-4">
+        <div className="flex items-center justify-center space-x-4 mb-4">
           <img 
-            src="/new_logo.svg" 
+            src="/nlogo.png" 
             alt="Nemory Logo" 
-            className="w-12 h-12 rounded-xl"
+            className="w-16 h-16 object-contain"
           />
           <div>
             <h2 className="font-display font-bold text-2xl text-gray-900">Nemory</h2>

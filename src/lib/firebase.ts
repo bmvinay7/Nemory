@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, enableNetwork, disableNetwork, initializeFirestore } from 'firebase/firestore';
+import { getFirestore, enableNetwork, disableNetwork, initializeFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getAnalytics } from 'firebase/analytics';
 
 const firebaseConfig = {
@@ -50,45 +50,58 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firebase Authentication and get a reference to the service
 export const auth = getAuth(app);
 
-// Initialize Cloud Firestore with compatibility settings for restrictive environments
-export const db = initializeFirestore(app, {
-  experimentalAutoDetectLongPolling: true,
-  useFetchStreams: false,
-});
+// Initialize Cloud Firestore - use standard getFirestore to avoid CORS issues
+export const db = import.meta.env.DEV && import.meta.env.VITE_USE_FIRESTORE_EMULATOR === 'true'
+  ? (() => {
+      const firestore = getFirestore(app);
+      try {
+        connectFirestoreEmulator(firestore, 'localhost', 8080);
+        console.log('Firebase: Connected to Firestore emulator');
+      } catch (error) {
+        console.log('Firebase: Firestore emulator already connected or not available');
+      }
+      return firestore;
+    })()
+  : getFirestore(app);
 
-// Initialize Firestore with better error handling
-let firestoreReady = false;
+// Firestore is ready by default with standard getFirestore()
+let firestoreReady = true;
 
-const tryEnableNetwork = async () => {
+// Export utility functions for connection management (simplified)
+export const reconnectFirestore = async () => {
   try {
     await enableNetwork(db);
     firestoreReady = true;
-    console.log('Firebase: Firestore connection established');
-  } catch (error: any) {
-    console.warn('Firebase: Firestore connection failed, using offline mode:', error?.code || error?.message);
-    firestoreReady = false;
-    try { await disableNetwork(db); } catch {}
+    console.log('Firebase: Reconnected to Firestore');
+    return true;
+  } catch (error) {
+    console.error('Firebase: Failed to reconnect:', error);
+    return false;
   }
 };
 
-// Only enable Firestore network in production by default to avoid CORS/noise in dev.
-// Override by setting VITE_ENABLE_FIRESTORE_NETWORK=true
-const shouldEnableNetwork = typeof window !== 'undefined' && (
-  (import.meta.env.PROD && import.meta.env.VITE_DISABLE_FIRESTORE_NETWORK !== 'true') ||
-  import.meta.env.VITE_ENABLE_FIRESTORE_NETWORK === 'true'
-);
+export const disconnectFirestore = async () => {
+  try {
+    await disableNetwork(db);
+    firestoreReady = false;
+    console.log('Firebase: Disconnected from Firestore');
+    return true;
+  } catch (error) {
+    console.error('Firebase: Failed to disconnect:', error);
+    return false;
+  }
+};
 
-if (shouldEnableNetwork) {
-  tryEnableNetwork();
+// Only disable network if explicitly requested
+if (typeof window !== 'undefined' && import.meta.env.VITE_DISABLE_FIRESTORE_NETWORK === 'true') {
+  disableNetwork(db).then(() => {
+    firestoreReady = false;
+    console.log('Firebase: Network disabled as requested');
+  }).catch(() => {
+    console.warn('Firebase: Failed to disable network');
+  });
 } else {
-  // Ensure offline mode in development
-  if (typeof window !== 'undefined') {
-    disableNetwork(db).catch(() => {});
-  }
-  firestoreReady = false;
-  if (import.meta.env.DEV) {
-    console.log('Firebase: Running in offline mode for development (no network listeners).');
-  }
+  console.log('Firebase: Using standard Firestore connection');
 }
 
 export const isFirestoreReady = () => firestoreReady;

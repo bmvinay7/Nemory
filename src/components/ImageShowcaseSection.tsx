@@ -27,7 +27,7 @@ const ImageShowcaseSection = () => {
             <h3 className="text-xl sm:text-2xl font-display font-semibold mb-3 sm:mb-4">Smart Note Intelligence</h3>
             <p className="text-gray-700 text-sm sm:text-base">
               Built with advanced AI and seamless integrations, Nemory connects to your Notion workspace, 
-              analyzes your notes, and delivers meaningful summaries via Gmail and WhatsApp, 
+              analyzes your notes, and delivers meaningful summaries instantly via Telegram, 
               helping you turn knowledge into actionable insights.
             </p>
           </div>

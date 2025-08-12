@@ -7,7 +7,7 @@ import { aiSummarizationService, SummaryOptions, SummaryResult } from '@/lib/ai-
 import { summaryStorageService, SummaryPreferences } from '@/lib/summary-storage';
 import { toast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/safe-card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -308,24 +308,69 @@ const AISummarization: React.FC = () => {
     }
   };
 
-  const sendSummaryByWhatsApp = async () => {
-    if (!currentSummary) return;
+  const sendSummaryByTelegram = async () => {
+    if (!currentSummary || !currentUser) return;
     
     setIsSendingWhatsApp(true);
     try {
-      // Simulate WhatsApp sending delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Get user's Telegram preferences
+      const { doc, getDoc } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
+      const { telegramClientService } = await import('@/lib/telegram-client');
       
-      // Increment metrics
-      await incrementSummariesSent();
+      const prefsRef = doc(db, 'telegramPreferences', currentUser.uid);
+      const prefsSnap = await getDoc(prefsRef);
       
-      toast({
-        title: "Summary sent via WhatsApp!",
-        description: "Summary delivered to your WhatsApp",
+      if (!prefsSnap.exists()) {
+        toast({
+          title: "Telegram not configured",
+          description: "Please set up your Telegram chat ID in Settings first",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      const preferences = prefsSnap.data();
+      if (!preferences.chatId) {
+        toast({
+          title: "No chat ID",
+          description: "Please add your Telegram chat ID in Settings",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Send via Telegram
+      const result = await telegramClientService.sendSummary({
+        chatId: preferences.chatId,
+        summary: currentSummary.summary,
+        actionItems: currentSummary.actionItems,
+        keyInsights: currentSummary.keyInsights,
+        priority: currentSummary.priority,
+        readingTime: currentSummary.readingTime,
+        createdAt: currentSummary.createdAt,
       });
+      
+      if (result.success) {
+        // Increment metrics
+        await incrementSummariesSent();
+        
+        toast({
+          title: "Summary sent via Telegram! 🎉",
+          description: `Delivered to your Telegram chat`,
+        });
+      } else {
+        toast({
+          title: "Failed to send Telegram message",
+          description: result.error || 'Unknown error occurred',
+          variant: "destructive"
+        });
+      }
+      
     } catch (error) {
+      console.error('Telegram sending error:', error);
       toast({
-        title: "Failed to send WhatsApp message",
+        title: "Failed to send Telegram message",
         description: "Please try again later",
         variant: "destructive"
       });
@@ -480,23 +525,23 @@ const AISummarization: React.FC = () => {
                 <div className="flex items-center space-x-2 mt-4">
                   <Button
                     size="sm"
+                    variant="default"
+                    onClick={sendSummaryByTelegram}
+                    disabled={isSendingWhatsApp}
+                    className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700"
+                  >
+                    <MessageCircle className={`w-4 h-4 ${isSendingWhatsApp ? 'animate-pulse' : ''}`} />
+                    <span>{isSendingWhatsApp ? 'Sending...' : 'Send to Telegram'}</span>
+                  </Button>
+                  <Button
+                    size="sm"
                     variant="outline"
                     onClick={sendSummaryByEmail}
                     disabled={isSendingEmail}
                     className="flex items-center space-x-2"
                   >
                     <Mail className={`w-4 h-4 ${isSendingEmail ? 'animate-pulse' : ''}`} />
-                    <span>{isSendingEmail ? 'Sending...' : 'Send Email'}</span>
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={sendSummaryByWhatsApp}
-                    disabled={isSendingWhatsApp}
-                    className="flex items-center space-x-2"
-                  >
-                    <MessageCircle className={`w-4 h-4 ${isSendingWhatsApp ? 'animate-pulse' : ''}`} />
-                    <span>{isSendingWhatsApp ? 'Sending...' : 'Send WhatsApp'}</span>
+                    <span>{isSendingEmail ? 'Sending...' : 'Email Backup'}</span>
                   </Button>
                 </div>
                 <CardDescription>

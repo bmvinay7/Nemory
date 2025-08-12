@@ -10,9 +10,9 @@ const TermsOfService: React.FC = () => {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-3">
               <img 
-                src="/new_logo.svg" 
+                src="/nlogo.png" 
                 alt="Nemory Logo" 
-                className="w-10 h-10 rounded-xl"
+                className="w-12 h-12 object-contain"
               />
               <div>
                 <h1 className="font-display font-bold text-xl text-gray-900">Nemory</h1>

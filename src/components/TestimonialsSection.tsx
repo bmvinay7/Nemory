@@ -10,7 +10,7 @@ const TestimonialsSection = () => {
       avatar: "SC"
     },
     {
-      quote: "I was drowning in meeting notes and project ideas. Nemory's WhatsApp summaries keep me on track with what actually matters for my startup.",
+      quote: "I was drowning in meeting notes and project ideas. Nemory's Telegram summaries keep me on track with what actually matters for my startup.",
       author: "Marcus Rodriguez",
       role: "Founder",
       company: "TechFlow",
@@ -31,7 +31,7 @@ const TestimonialsSection = () => {
       avatar: "DK"
     },
     {
-      quote: "Nemory's Gmail integration fits perfectly into my workflow. I get personalized learning insights from my course notes every Sunday.",
+      quote: "Nemory's Telegram integration fits perfectly into my workflow. I get personalized learning insights from my course notes instantly.",
       author: "Priya Patel",
       role: "Graduate Student",
       company: "Stanford",

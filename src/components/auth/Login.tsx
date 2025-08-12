@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAuthModal } from '@/contexts/AuthModalContext';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 
@@ -13,7 +14,11 @@ const Login: React.FC<LoginProps> = ({ onSwitchToSignup, onClose }) => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const { login, loginWithGoogle } = useAuth();
+  const { openModal } = useAuthModal();
 
   const getErrorMessage = (error: any) => {
     const errorCode = error.code;
@@ -39,22 +44,22 @@ const Login: React.FC<LoginProps> = ({ onSwitchToSignup, onClose }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Clear previous errors
+    setEmailError(null);
+    setPasswordError(null);
+    setFormError(null);
     
-    if (!email || !password) {
-      toast({
-        title: "Missing Information",
-        description: "Please enter both email and password.",
-        variant: "destructive"
-      });
-      return;
+    if (!email) {
+      setEmailError('Please enter your email address.');
     }
+    if (!password) {
+      setPasswordError('Please enter your password.');
+    }
+    if (!email || !password) return;
 
-    if (!email.includes('@')) {
-      toast({
-        title: "Invalid Email",
-        description: "Please enter a valid email address.",
-        variant: "destructive"
-      });
+    // Basic email format check
+    if (!email.includes('@') || !email.includes('.')) {
+      setEmailError('Please enter a valid email address.');
       return;
     }
 
@@ -67,11 +72,22 @@ const Login: React.FC<LoginProps> = ({ onSwitchToSignup, onClose }) => {
       });
       onClose();
     } catch (error: any) {
-      toast({
-        title: "Login Failed",
-        description: getErrorMessage(error),
-        variant: "destructive"
-      });
+      const code = error?.code as string | undefined;
+      if (code === 'auth/invalid-email') {
+        setEmailError('Please enter a valid email address.');
+      } else if (code === 'auth/user-not-found') {
+        setEmailError('No account found with this email address. Please sign up first.');
+      } else if (code === 'auth/wrong-password') {
+        setPasswordError('Incorrect password. Please try again.');
+      } else if (code === 'auth/invalid-credential') {
+        setPasswordError('Invalid email or password. Please check your credentials.');
+      } else if (code === 'auth/too-many-requests') {
+        setFormError('Too many failed attempts. Please try again later.');
+      } else if (code === 'auth/network-request-failed') {
+        setFormError('Network error. Please check your connection and try again.');
+      } else {
+        setFormError(getErrorMessage(error));
+      }
     } finally {
       setLoading(false);
     }
@@ -121,11 +137,11 @@ const Login: React.FC<LoginProps> = ({ onSwitchToSignup, onClose }) => {
     <div className="w-full max-w-md mx-auto">
       {/* Header */}
       <div className="text-center mb-8">
-        <div className="flex items-center justify-center space-x-3 mb-4">
+        <div className="flex items-center justify-center space-x-4 mb-4">
           <img 
-            src="/new_logo.svg" 
+            src="/nlogo.png" 
             alt="Nemory Logo" 
-            className="w-12 h-12 rounded-xl"
+            className="w-16 h-16 object-contain"
           />
           <div>
             <h2 className="font-display font-bold text-2xl text-gray-900">Nemory</h2>
@@ -173,12 +189,27 @@ const Login: React.FC<LoginProps> = ({ onSwitchToSignup, onClose }) => {
               id="email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pulse-500 focus:border-transparent transition-all duration-200"
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (emailError) setEmailError(null);
+                if (formError) setFormError(null);
+              }}
+              aria-invalid={!!emailError}
+              aria-describedby={emailError ? 'email-error' : undefined}
+              className={`w-full pl-10 pr-4 py-3 rounded-lg transition-all duration-200 border focus:ring-2 ${
+                emailError
+                  ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
+                  : 'border-gray-300 focus:ring-pulse-500 focus:border-transparent'
+              }`}
               placeholder="Enter your email"
               required
             />
           </div>
+          {emailError && (
+            <p id="email-error" className="mt-2 text-sm text-red-600">
+              {emailError}
+            </p>
+          )}
         </div>
 
         <div>
@@ -191,8 +222,18 @@ const Login: React.FC<LoginProps> = ({ onSwitchToSignup, onClose }) => {
               id="password"
               type={showPassword ? 'text' : 'password'}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pulse-500 focus:border-transparent transition-all duration-200"
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (passwordError) setPasswordError(null);
+                if (formError) setFormError(null);
+              }}
+              aria-invalid={!!passwordError}
+              aria-describedby={passwordError ? 'password-error' : undefined}
+              className={`w-full pl-10 pr-12 py-3 rounded-lg transition-all duration-200 border focus:ring-2 ${
+                passwordError
+                  ? 'border-red-500 focus:ring-red-500 focus:border-red-500'
+                  : 'border-gray-300 focus:ring-pulse-500 focus:border-transparent'
+              }`}
               placeholder="Enter your password"
               required
             />
@@ -204,7 +245,18 @@ const Login: React.FC<LoginProps> = ({ onSwitchToSignup, onClose }) => {
               {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
           </div>
+          {passwordError && (
+            <p id="password-error" className="mt-2 text-sm text-red-600">
+              {passwordError}
+            </p>
+          )}
         </div>
+
+        {formError && (
+          <div className="rounded-md bg-red-50 p-3">
+            <p className="text-sm text-red-700">{formError}</p>
+          </div>
+        )}
 
         <button
           type="submit"

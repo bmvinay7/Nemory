@@ -2,15 +2,14 @@ import React, { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Menu, X, ArrowRight, Brain, Zap, User, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useNavigate } from "react-router-dom";
-import AuthModal from "./auth/AuthModal";
 
 const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const { currentUser, logout } = useAuth();
+  const { openModal } = useAuthModal();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -40,16 +39,14 @@ const Navbar = () => {
   };
 
   const handleAuthClick = (mode: 'login' | 'signup') => {
-    setAuthMode(mode);
-    setIsAuthModalOpen(true);
+    openModal(mode);
   };
 
   const handleGetStarted = () => {
     if (currentUser) {
       navigate('/dashboard');
     } else {
-      setAuthMode('signup');
-      setIsAuthModalOpen(true);
+      openModal('signup');
     }
   };
 
@@ -75,7 +72,7 @@ const Navbar = () => {
         {/* Logo */}
         <a 
           href="#" 
-          className="flex items-center space-x-3 group"
+          className="flex items-center space-x-4 group"
           onClick={(e) => {
             e.preventDefault();
             scrollToTop();
@@ -84,9 +81,9 @@ const Navbar = () => {
         >
           <div className="relative">
             <img 
-              src="/new_logo.svg" 
+              src="/nlogo.png" 
               alt="Nemory Logo" 
-              className="w-14 h-14 rounded-xl shadow-lg group-hover:shadow-pulse-500/25 transition-all duration-300"
+              className="w-12 h-12 object-contain"
             />
           </div>
           <div className="flex flex-col">
@@ -298,12 +295,6 @@ const Navbar = () => {
         </div>
       </div>
 
-      {/* Auth Modal */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        initialMode={authMode}
-      />
     </header>
   );
 };
