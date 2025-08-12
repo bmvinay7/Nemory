@@ -72,7 +72,7 @@ const Navbar = () => {
         {/* Logo */}
         <a 
           href="#" 
-          className="flex items-center space-x-4 group"
+          className="flex items-center space-x-1 group"
           onClick={(e) => {
             e.preventDefault();
             scrollToTop();
@@ -83,7 +83,7 @@ const Navbar = () => {
             <img 
               src="/nlogo.png" 
               alt="Nemory Logo" 
-              className="w-12 h-12 object-contain"
+              className="w-14 h-14 object-contain"
             />
           </div>
           <div className="flex flex-col">
