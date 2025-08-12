@@ -123,7 +123,6 @@ export class SummaryStorageService {
           const q = query(
             collection(db, 'summaries'),
             where('userId', '==', userId),
-            where('isDeleted', '!=', true),
             orderBy('createdAt', 'desc'),
             limit(limitCount)
           );
@@ -132,7 +131,10 @@ export class SummaryStorageService {
           const summaries: SummaryResult[] = [];
           
           querySnapshot.forEach((doc) => {
-            summaries.push(doc.data() as SummaryResult);
+            const data = doc.data() as SummaryResult;
+            if (!data.isDeleted) {
+              summaries.push(data);
+            }
           });
           
           if (summaries.length > 0) {

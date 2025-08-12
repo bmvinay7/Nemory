@@ -392,8 +392,28 @@ export class NotionOAuthService {
         }
       }
       
-      console.log(`Total content items extracted: ${contentItems.length}`);
-      return contentItems;
+      // Final validation: ensure all items have required properties
+      const validatedItems = contentItems.filter(item => {
+        if (!item || typeof item !== 'object') {
+          console.warn('Invalid item (not an object):', item);
+          return false;
+        }
+        if (!item.content || typeof item.content !== 'string') {
+          console.warn('Item missing content property:', item.title || 'Untitled');
+          // Add default content if missing
+          item.content = item.content || 'No content available';
+        }
+        if (!item.title) {
+          item.title = 'Untitled';
+        }
+        if (!item.id) {
+          item.id = `generated_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        }
+        return true;
+      });
+      
+      console.log(`Total content items extracted: ${validatedItems.length} (validated from ${contentItems.length})`);
+      return validatedItems;
     } catch (error) {
       console.error('NotionOAuth: Error fetching content for AI:', error);
       throw error;
@@ -982,10 +1002,11 @@ export class NotionOAuthService {
                 
                 const directContent = await this.extractContentRecursively(children, accessToken, 0);
                 
+                const finalContent = directContent.trim() || this.createPlaceholderContentForClosedToggle(toggleTitle, pageTitle);
                 const directItem = {
                   id: `${block.id}_direct`,
                   title: `${pageTitle} → ${toggleTitle}`,
-                  content: directContent.trim() || this.createPlaceholderContentForClosedToggle(toggleTitle, pageTitle),
+                  content: finalContent || 'No content available', // Ensure content is never undefined
                   type: 'toggle',
                   toggleTitle: toggleTitle,
                   parentPage: pageTitle,
@@ -993,7 +1014,7 @@ export class NotionOAuthService {
                   url: `notion://www.notion.so/${block.id}`,
                   contentType: 'toggle',
                   toggleLevel: 'direct',
-                  wordCount: Math.max(1, (directContent || '').split(/\s+/).length),
+                  wordCount: Math.max(1, (finalContent || '').split(/\s+/).length),
                   isClosedToggle: !directContent.trim(),
                   extractionMethod: directContent.trim() ? 'direct_content' : 'placeholder',
                 };
@@ -1006,10 +1027,11 @@ export class NotionOAuthService {
               // No children returned - likely a closed toggle
               console.log(`    🔒 CLOSED TOGGLE: "${toggleTitle}" - no children returned, creating placeholder`);
               
+              const placeholderContent = this.createPlaceholderContentForClosedToggle(toggleTitle, pageTitle);
               const placeholderItem = {
                 id: `${block.id}_closed`,
                 title: `${pageTitle} → ${toggleTitle}`,
-                content: this.createPlaceholderContentForClosedToggle(toggleTitle, pageTitle),
+                content: placeholderContent || 'No content available', // Ensure content is never undefined
                 type: 'toggle',
                 toggleTitle: toggleTitle,
                 parentPage: pageTitle,

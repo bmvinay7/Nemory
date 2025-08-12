@@ -83,7 +83,7 @@ const Navbar = () => {
             <img 
               src="/nlogo.png" 
               alt="Nemory Logo" 
-              className="w-14 h-14 object-contain"
+              className="w-16 h-16 object-contain"
             />
           </div>
           <div className="flex flex-col">

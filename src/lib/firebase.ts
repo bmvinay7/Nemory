@@ -50,19 +50,22 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firebase Authentication and get a reference to the service
 export const auth = getAuth(app);
 
-// Initialize Cloud Firestore - use standard getFirestore to avoid CORS issues
-export const db = import.meta.env.DEV && import.meta.env.VITE_USE_FIRESTORE_EMULATOR === 'true'
-  ? (() => {
-      const firestore = getFirestore(app);
-      try {
-        connectFirestoreEmulator(firestore, 'localhost', 8080);
-        console.log('Firebase: Connected to Firestore emulator');
-      } catch (error) {
-        console.log('Firebase: Firestore emulator already connected or not available');
-      }
-      return firestore;
-    })()
-  : getFirestore(app);
+// Initialize Cloud Firestore with robust networking options to avoid WebChannel 400 issues
+const baseFirestore = initializeFirestore(app, {
+  experimentalAutoDetectLongPolling: true,
+  ignoreUndefinedProperties: true,
+});
+
+if (import.meta.env.DEV && import.meta.env.VITE_USE_FIRESTORE_EMULATOR === 'true') {
+  try {
+    connectFirestoreEmulator(baseFirestore, 'localhost', 8080);
+    console.log('Firebase: Connected to Firestore emulator');
+  } catch (error) {
+    console.log('Firebase: Firestore emulator already connected or not available');
+  }
+}
+
+export const db = baseFirestore;
 
 // Firestore is ready by default with standard getFirestore()
 let firestoreReady = true;

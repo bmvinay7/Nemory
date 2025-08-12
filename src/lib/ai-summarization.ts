@@ -219,16 +219,42 @@ export class AISummarizationService {
    * Intelligently selects the most valuable content based on type, quality, user patterns, and summary history
    */
   private async selectSmartNote(content: NotionContent[], userId: string): Promise<NotionContent | null> {
-    if (content.length === 0) return null;
+    if (content.length === 0) {
+      console.log('❌ No content provided for selection');
+      return null;
+    }
+    
+    // Validate content items have required properties
+    const validContent = content.filter(item => {
+      if (!item || !item.content) {
+        console.warn(`⚠️ Skipping invalid content item:`, {
+          title: item?.title || 'No title',
+          hasContent: !!item?.content,
+          type: item?.type || 'unknown'
+        });
+        return false;
+      }
+      return true;
+    });
+    
+    if (validContent.length === 0) {
+      console.error('❌ No valid content items after filtering');
+      console.error('   Original items:', content.length);
+      console.error('   Invalid items:', content.length - validContent.length);
+      return null;
+    }
     
     console.log(`🎯 SMART SELECTION WITH REPETITION AWARENESS:`);
-    console.log(`   📊 Evaluating ${content.length} content items`);
+    console.log(`   📊 Evaluating ${validContent.length} valid content items (filtered from ${content.length})`);
     
     // Get summary history to understand what's been processed
     const summaryHistory = await this.getPreviouslySummarizedContent(userId);
     
+    // Use validContent instead of original content
+    const contentToProcess = validContent;
+    
     // Categorize content by type
-    const contentByType = this.categorizeContent(content);
+    const contentByType = this.categorizeContent(contentToProcess);
     
     console.log(`📋 CONTENT DISTRIBUTION:`, {
       toggles: contentByType.toggles.length,
@@ -286,13 +312,13 @@ export class AISummarizationService {
     if (totalAvailable === 0) {
       const shouldRepeat = this.shouldAllowRepetition(
         totalAvailable,
-        content.length,
+        contentToProcess.length,
         summaryHistory
       );
       
       if (shouldRepeat) {
         console.log(`🔄 ENABLING REPETITION MODE: Selecting content for new perspective`);
-        return this.selectContentForRepetition(content, summaryHistory);
+        return this.selectContentForRepetition(contentToProcess, summaryHistory);
       } else {
         console.log(`🚫 NO REPETITION: Not enough summaries generated yet (need ${(this.REPETITION_THRESHOLD * 100).toFixed(1)}% threshold)`);
         return null;
@@ -653,10 +679,30 @@ export class AISummarizationService {
       });
       
       // Step 1: Smart note selection (SELECTS ONLY ONE)
-      const selectedNote = this.selectSmartNote(content, userId);
+      const selectedNote = await this.selectSmartNote(content, userId);
       
       if (!selectedNote) {
-        throw new Error('No suitable notes found for summarization');
+        console.error('❌ No suitable notes found for summarization');
+        console.error('   Available content:', content.length, 'items');
+        console.error('   Content sample:', content.slice(0, 3).map(c => ({
+          title: c.title,
+          type: c.type,
+          contentLength: c.content?.length || 0,
+          hasContent: !!c.content
+        })));
+        throw new Error('No suitable notes found for summarization. Please ensure you have content in your Notion workspace.');
+      }
+      
+      // Validate selectedNote has required properties
+      if (!selectedNote.content) {
+        console.error('❌ Selected note has no content!');
+        console.error('   Selected note:', {
+          title: selectedNote.title,
+          type: selectedNote.type,
+          id: selectedNote.id,
+          hasContent: !!selectedNote.content
+        });
+        throw new Error('Selected note has no content to summarize');
       }
       
       console.log(`🎯 SINGLE NOTE SELECTED FOR PROCESSING:`);

@@ -29,7 +29,9 @@ import {
   Trash2,
   Eye,
   RotateCcw,
-  Trash
+  Trash,
+  MessageCircle,
+  Mail
 } from 'lucide-react';
 
 const AISummarization: React.FC = () => {

@@ -151,13 +151,13 @@ const Dashboard: React.FC = () => {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center space-x-2">
-                      <p className="text-2xl font-bold text-gray-900">
+                      <div className="text-2xl font-bold text-gray-900">
                         {metricsLoading ? (
                           <div className="w-8 h-8 bg-gray-200 rounded animate-pulse"></div>
                         ) : (
                           metrics.notesProcessed.toLocaleString()
                         )}
-                      </p>
+                      </div>
                       {!metricsLoading && metrics.notesProcessed > 0 && (
                         <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
                           Active
@@ -181,13 +181,13 @@ const Dashboard: React.FC = () => {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center space-x-2">
-                      <p className="text-2xl font-bold text-gray-900">
+                      <div className="text-2xl font-bold text-gray-900">
                         {metricsLoading ? (
                           <div className="w-8 h-8 bg-gray-200 rounded animate-pulse"></div>
                         ) : (
                           metrics.summariesSent.toLocaleString()
                         )}
-                      </p>
+                      </div>
                       {!metricsLoading && metrics.summariesSent > 0 && (
                         <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
                           Delivered
@@ -211,13 +211,13 @@ const Dashboard: React.FC = () => {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center space-x-2">
-                      <p className="text-2xl font-bold text-gray-900">
+                      <div className="text-2xl font-bold text-gray-900">
                         {metricsLoading ? (
                           <div className="w-8 h-8 bg-gray-200 rounded animate-pulse"></div>
                         ) : (
                           metrics.actionItems.toLocaleString()
                         )}
-                      </p>
+                      </div>
                       {!metricsLoading && metrics.actionItems > 0 && (
                         <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
                           Generated
