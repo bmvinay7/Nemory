@@ -15,6 +15,19 @@ export default defineConfig(({ mode }) => ({
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     },
   },
+  build: {
+    outDir: 'dist',
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+          ui: ['@radix-ui/react-dialog', '@radix-ui/react-toast', '@radix-ui/react-tabs']
+        }
+      }
+    }
+  },
   plugins: [
     react(),
     mode === 'development' &&

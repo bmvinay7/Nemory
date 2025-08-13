@@ -1,0 +1,41 @@
+# Debug and test files
+debug-*.js
+test-*.js
+final-*.js
+verify-*.js
+check-*.js
+
+# Documentation files
+*.md
+!README.md
+
+# Development files
+.env
+.DS_Store
+bun.lockb
+
+# Bot and server files
+telegram-*.js
+ecosystem.config.js
+nemory-bot.service
+start-bot.sh
+deploy-bot.sh
+docker-compose.*.yml
+Dockerfile.*
+webhook-package.json
+
+# Firebase files (not needed for Vercel deployment)
+.firebaserc
+firebase.json
+firestore.rules
+firestore.indexes.json
+
+# Development dependencies
+node_modules/
+.git/
+dist/
+
+# Temporary files
+*.log
+*.tmp
+.cache/

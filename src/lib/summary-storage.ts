@@ -36,23 +36,23 @@ export class SummaryStorageService {
   async saveSummary(summary: SummaryResult): Promise<void> {
     try {
       console.log('SummaryStorage: Saving summary:', summary.id);
-      
+
       // Always save to localStorage for reliability
       const localKey = `summary_${summary.userId}_${summary.id}`;
       localStorage.setItem(localKey, JSON.stringify(summary));
-      
+
       // Try to save to Firestore if available
       if (isFirestoreReady()) {
         try {
           const docRef = doc(db, 'summaries', summary.id);
-          
+
           // Convert date strings to Firestore Timestamps for better querying
           const firestoreSummary = {
             ...summary,
             createdAt: Timestamp.fromDate(new Date(summary.createdAt)),
             deletedAt: summary.deletedAt ? Timestamp.fromDate(new Date(summary.deletedAt)) : null
           };
-          
+
           await handleFirestoreOperation(
             () => setDoc(docRef, firestoreSummary),
             'saveSummary'
@@ -65,10 +65,10 @@ export class SummaryStorageService {
           }
         }
       }
-      
+
       // Update user's summary list
       await this.updateUserSummaryList(summary.userId, summary.id);
-      
+
     } catch (error) {
       console.error('SummaryStorage: Error saving summary:', error);
       throw error;
@@ -81,13 +81,13 @@ export class SummaryStorageService {
   async getSummary(summaryId: string, userId: string): Promise<SummaryResult | null> {
     try {
       console.log('SummaryStorage: Fetching summary:', summaryId);
-      
+
       // Try Firestore first
       if (isFirestoreReady()) {
         try {
           const docRef = doc(db, 'summaries', summaryId);
           const docSnap = await getDoc(docRef);
-          
+
           if (docSnap.exists()) {
             const summary = docSnap.data() as SummaryResult;
             // Verify user ownership
@@ -100,11 +100,11 @@ export class SummaryStorageService {
           console.warn('SummaryStorage: Firestore fetch failed:', firestoreError.code);
         }
       }
-      
+
       // Fallback to localStorage
       const localKey = `summary_${userId}_${summaryId}`;
       const localData = localStorage.getItem(localKey);
-      
+
       if (localData) {
         try {
           const summary = JSON.parse(localData) as SummaryResult;
@@ -114,10 +114,10 @@ export class SummaryStorageService {
           console.error('SummaryStorage: Failed to parse localStorage data:', parseError);
         }
       }
-      
+
       console.log('SummaryStorage: Summary not found');
       return null;
-      
+
     } catch (error) {
       console.error('SummaryStorage: Error fetching summary:', error);
       return null;
@@ -130,7 +130,7 @@ export class SummaryStorageService {
   async getUserSummaries(userId: string, limitCount: number = 10): Promise<SummaryResult[]> {
     try {
       console.log('SummaryStorage: Fetching summaries for user:', userId);
-      
+
       // Try Firestore first
       if (isFirestoreReady()) {
         try {
@@ -140,30 +140,30 @@ export class SummaryStorageService {
             orderBy('createdAt', 'desc'),
             limit(limitCount)
           );
-          
+
           const querySnapshot = await handleFirestoreOperation(
             () => getDocs(q),
             'getUserSummaries query'
           );
           const summaries: SummaryResult[] = [];
-          
+
           querySnapshot.forEach((doc) => {
             const data = doc.data() as any;
             if (!data.isDeleted) {
               // Convert Firestore Timestamps back to ISO strings for consistency
               const summary: SummaryResult = {
                 ...data,
-                createdAt: data.createdAt instanceof Timestamp 
-                  ? data.createdAt.toDate().toISOString() 
+                createdAt: data.createdAt instanceof Timestamp
+                  ? data.createdAt.toDate().toISOString()
                   : data.createdAt,
-                deletedAt: data.deletedAt instanceof Timestamp 
-                  ? data.deletedAt.toDate().toISOString() 
+                deletedAt: data.deletedAt instanceof Timestamp
+                  ? data.deletedAt.toDate().toISOString()
                   : data.deletedAt
               };
               summaries.push(summary);
             }
           });
-          
+
           if (summaries.length > 0) {
             console.log(`SummaryStorage: Loaded ${summaries.length} summaries from Firestore`);
             return summaries;
@@ -175,18 +175,18 @@ export class SummaryStorageService {
             userId: userId,
             isFirestoreReady: isFirestoreReady()
           });
-          
+
           // If it's a missing index error, provide helpful information
           if (firestoreError.code === 'failed-precondition' && firestoreError.message.includes('index')) {
             console.error('SummaryStorage: Missing Firestore index! Run: firebase deploy --only firestore:indexes');
           }
         }
       }
-      
+
       // Fallback to localStorage
       const summaries: SummaryResult[] = [];
       const keys = Object.keys(localStorage).filter(key => key.startsWith(`summary_${userId}_`));
-      
+
       for (const key of keys) {
         try {
           const data = localStorage.getItem(key);
@@ -201,13 +201,13 @@ export class SummaryStorageService {
           console.warn('SummaryStorage: Failed to parse summary from localStorage:', key);
         }
       }
-      
+
       // Sort by creation date (newest first)
       summaries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      
+
       console.log(`SummaryStorage: Loaded ${summaries.length} summaries from localStorage`);
       return summaries.slice(0, limitCount);
-      
+
     } catch (error) {
       console.error('SummaryStorage: Error fetching user summaries:', error);
       return [];
@@ -220,13 +220,13 @@ export class SummaryStorageService {
   async deleteSummary(summaryId: string, userId: string): Promise<void> {
     try {
       console.log('SummaryStorage: Moving summary to recycle bin:', summaryId);
-      
+
       // Get the current summary
       const summary = await this.getSummary(summaryId, userId);
       if (!summary) {
         throw new Error('Summary not found');
       }
-      
+
       // Mark as deleted
       const deletedSummary: SummaryResult = {
         ...summary,
@@ -234,11 +234,11 @@ export class SummaryStorageService {
         deletedAt: new Date().toISOString(),
         deletedBy: userId
       };
-      
+
       // Update in localStorage
       const localKey = `summary_${userId}_${summaryId}`;
       localStorage.setItem(localKey, JSON.stringify(deletedSummary));
-      
+
       // Update in Firestore if available
       if (isFirestoreReady()) {
         try {
@@ -249,7 +249,7 @@ export class SummaryStorageService {
           console.warn('SummaryStorage: Firestore recycle bin update failed:', firestoreError.code);
         }
       }
-      
+
     } catch (error) {
       console.error('SummaryStorage: Error moving summary to recycle bin:', error);
       throw error;
@@ -262,7 +262,7 @@ export class SummaryStorageService {
   async getDeletedSummaries(userId: string): Promise<SummaryResult[]> {
     try {
       console.log('SummaryStorage: Fetching deleted summaries for user:', userId);
-      
+
       // Try Firestore first
       if (isFirestoreReady()) {
         try {
@@ -272,10 +272,10 @@ export class SummaryStorageService {
             where('isDeleted', '==', true),
             orderBy('deletedAt', 'desc')
           );
-          
+
           const querySnapshot = await getDocs(q);
           const summaries: SummaryResult[] = [];
-          
+
           querySnapshot.forEach((doc) => {
             const summary = doc.data() as SummaryResult;
             // Check if not expired (30 days)
@@ -283,7 +283,7 @@ export class SummaryStorageService {
               summaries.push(summary);
             }
           });
-          
+
           if (summaries.length > 0) {
             console.log(`SummaryStorage: Loaded ${summaries.length} deleted summaries from Firestore`);
             return summaries;
@@ -292,11 +292,11 @@ export class SummaryStorageService {
           console.warn('SummaryStorage: Firestore deleted summaries query failed:', firestoreError.code);
         }
       }
-      
+
       // Fallback to localStorage
       const summaries: SummaryResult[] = [];
       const keys = Object.keys(localStorage).filter(key => key.startsWith(`summary_${userId}_`));
-      
+
       for (const key of keys) {
         try {
           const data = localStorage.getItem(key);
@@ -310,13 +310,13 @@ export class SummaryStorageService {
           console.warn('SummaryStorage: Failed to parse deleted summary from localStorage:', key);
         }
       }
-      
+
       // Sort by deletion date (newest first)
       summaries.sort((a, b) => new Date(b.deletedAt!).getTime() - new Date(a.deletedAt!).getTime());
-      
+
       console.log(`SummaryStorage: Loaded ${summaries.length} deleted summaries from localStorage`);
       return summaries;
-      
+
     } catch (error) {
       console.error('SummaryStorage: Error fetching deleted summaries:', error);
       return [];
@@ -329,18 +329,18 @@ export class SummaryStorageService {
   async restoreSummary(summaryId: string, userId: string): Promise<void> {
     try {
       console.log('SummaryStorage: Restoring summary from recycle bin:', summaryId);
-      
+
       // Get the deleted summary
       const summary = await this.getSummary(summaryId, userId);
       if (!summary || !summary.isDeleted) {
         throw new Error('Summary not found in recycle bin');
       }
-      
+
       // Check if still within restore period
       if (!this.isWithinRecycleBinPeriod(summary.deletedAt!)) {
         throw new Error('Summary has expired and cannot be restored');
       }
-      
+
       // Remove deletion markers
       const restoredSummary: SummaryResult = {
         ...summary,
@@ -348,11 +348,11 @@ export class SummaryStorageService {
         deletedAt: undefined,
         deletedBy: undefined
       };
-      
+
       // Update in localStorage
       const localKey = `summary_${userId}_${summaryId}`;
       localStorage.setItem(localKey, JSON.stringify(restoredSummary));
-      
+
       // Update in Firestore if available
       if (isFirestoreReady()) {
         try {
@@ -363,10 +363,10 @@ export class SummaryStorageService {
           console.warn('SummaryStorage: Firestore restore failed:', firestoreError.code);
         }
       }
-      
+
       // Add back to user's summary list
       await this.updateUserSummaryList(userId, summaryId);
-      
+
     } catch (error) {
       console.error('SummaryStorage: Error restoring summary:', error);
       throw error;
@@ -379,11 +379,11 @@ export class SummaryStorageService {
   async permanentlyDeleteSummary(summaryId: string, userId: string): Promise<void> {
     try {
       console.log('SummaryStorage: Permanently deleting summary:', summaryId);
-      
+
       // Remove from localStorage
       const localKey = `summary_${userId}_${summaryId}`;
       localStorage.removeItem(localKey);
-      
+
       // Remove from Firestore if available
       if (isFirestoreReady()) {
         try {
@@ -394,10 +394,10 @@ export class SummaryStorageService {
           console.warn('SummaryStorage: Firestore permanent delete failed:', firestoreError.code);
         }
       }
-      
+
       // Remove from user's summary list
       await this.removeFromUserSummaryList(userId, summaryId);
-      
+
     } catch (error) {
       console.error('SummaryStorage: Error permanently deleting summary:', error);
       throw error;
@@ -410,20 +410,20 @@ export class SummaryStorageService {
   async cleanupExpiredSummaries(userId: string): Promise<number> {
     try {
       console.log('SummaryStorage: Cleaning up expired summaries for user:', userId);
-      
+
       const deletedSummaries = await this.getDeletedSummaries(userId);
       let cleanedCount = 0;
-      
+
       for (const summary of deletedSummaries) {
         if (!this.isWithinRecycleBinPeriod(summary.deletedAt!)) {
           await this.permanentlyDeleteSummary(summary.id, userId);
           cleanedCount++;
         }
       }
-      
+
       console.log(`SummaryStorage: Cleaned up ${cleanedCount} expired summaries`);
       return cleanedCount;
-      
+
     } catch (error) {
       console.error('SummaryStorage: Error cleaning up expired summaries:', error);
       return 0;
@@ -456,11 +456,11 @@ export class SummaryStorageService {
   async saveUserPreferences(preferences: SummaryPreferences): Promise<void> {
     try {
       console.log('SummaryStorage: Saving user preferences:', preferences.userId);
-      
+
       // Always save to localStorage
       const localKey = `preferences_${preferences.userId}`;
       localStorage.setItem(localKey, JSON.stringify(preferences));
-      
+
       // Try to save to Firestore if available
       if (isFirestoreReady()) {
         try {
@@ -471,7 +471,7 @@ export class SummaryStorageService {
           console.warn('SummaryStorage: Firestore preferences save failed:', firestoreError.code);
         }
       }
-      
+
     } catch (error) {
       console.error('SummaryStorage: Error saving preferences:', error);
       throw error;
@@ -484,13 +484,13 @@ export class SummaryStorageService {
   async getUserPreferences(userId: string): Promise<SummaryPreferences | null> {
     try {
       console.log('SummaryStorage: Fetching preferences for user:', userId);
-      
+
       // Try Firestore first
       if (isFirestoreReady()) {
         try {
           const docRef = doc(db, 'summary_preferences', userId);
           const docSnap = await getDoc(docRef);
-          
+
           if (docSnap.exists()) {
             const preferences = docSnap.data() as SummaryPreferences;
             console.log('SummaryStorage: Preferences loaded from Firestore');
@@ -500,11 +500,11 @@ export class SummaryStorageService {
           console.warn('SummaryStorage: Firestore preferences fetch failed:', firestoreError.code);
         }
       }
-      
+
       // Fallback to localStorage
       const localKey = `preferences_${userId}`;
       const localData = localStorage.getItem(localKey);
-      
+
       if (localData) {
         try {
           const preferences = JSON.parse(localData) as SummaryPreferences;
@@ -514,10 +514,10 @@ export class SummaryStorageService {
           console.error('SummaryStorage: Failed to parse preferences from localStorage:', parseError);
         }
       }
-      
+
       // Return default preferences if none found
       return this.getDefaultPreferences(userId);
-      
+
     } catch (error) {
       console.error('SummaryStorage: Error fetching preferences:', error);
       return this.getDefaultPreferences(userId);
@@ -530,11 +530,11 @@ export class SummaryStorageService {
   async logDelivery(deliveryLog: SummaryDeliveryLog): Promise<void> {
     try {
       console.log('SummaryStorage: Logging delivery:', deliveryLog.id);
-      
+
       // Save to localStorage
       const localKey = `delivery_${deliveryLog.userId}_${deliveryLog.id}`;
       localStorage.setItem(localKey, JSON.stringify(deliveryLog));
-      
+
       // Try to save to Firestore if available
       if (isFirestoreReady()) {
         try {
@@ -545,7 +545,7 @@ export class SummaryStorageService {
           console.warn('SummaryStorage: Firestore delivery log save failed:', firestoreError.code);
         }
       }
-      
+
     } catch (error) {
       console.error('SummaryStorage: Error logging delivery:', error);
     }
@@ -565,14 +565,14 @@ export class SummaryStorageService {
             where('userId', '==', userId),
             orderBy('createdAt', 'desc')
           );
-          
+
           const querySnapshot = await getDocs(q);
           const logs: SummaryDeliveryLog[] = [];
-          
+
           querySnapshot.forEach((doc) => {
             logs.push(doc.data() as SummaryDeliveryLog);
           });
-          
+
           if (logs.length > 0) {
             return logs;
           }
@@ -580,11 +580,11 @@ export class SummaryStorageService {
           console.warn('SummaryStorage: Firestore delivery logs query failed:', firestoreError.code);
         }
       }
-      
+
       // Fallback to localStorage
       const logs: SummaryDeliveryLog[] = [];
       const keys = Object.keys(localStorage).filter(key => key.startsWith(`delivery_${userId}_`));
-      
+
       for (const key of keys) {
         try {
           const data = localStorage.getItem(key);
@@ -598,12 +598,12 @@ export class SummaryStorageService {
           console.warn('SummaryStorage: Failed to parse delivery log from localStorage:', key);
         }
       }
-      
+
       // Sort by creation date (newest first)
       logs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      
+
       return logs;
-      
+
     } catch (error) {
       console.error('SummaryStorage: Error fetching delivery logs:', error);
       return [];
@@ -617,12 +617,12 @@ export class SummaryStorageService {
     try {
       const listKey = `summary_list_${userId}`;
       let summaryIds: string[] = [];
-      
+
       const existingList = localStorage.getItem(listKey);
       if (existingList) {
         summaryIds = JSON.parse(existingList);
       }
-      
+
       if (!summaryIds.includes(summaryId)) {
         summaryIds.unshift(summaryId); // Add to beginning
         summaryIds = summaryIds.slice(0, 50); // Keep only latest 50
@@ -637,7 +637,7 @@ export class SummaryStorageService {
     try {
       const listKey = `summary_list_${userId}`;
       const existingList = localStorage.getItem(listKey);
-      
+
       if (existingList) {
         let summaryIds: string[] = JSON.parse(existingList);
         summaryIds = summaryIds.filter(id => id !== summaryId);
