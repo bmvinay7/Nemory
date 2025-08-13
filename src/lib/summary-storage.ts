@@ -1,5 +1,5 @@
-import { doc, setDoc, getDoc, collection, query, where, orderBy, limit, getDocs, deleteDoc } from 'firebase/firestore';
-import { db, isFirestoreReady } from './firebase';
+import { doc, setDoc, getDoc, collection, query, where, orderBy, limit, getDocs, deleteDoc, Timestamp } from 'firebase/firestore';
+import { db, isFirestoreReady, handleFirestoreOperation } from './firebase';
 import { SummaryResult } from './ai-summarization';
 
 export interface SummaryPreferences {
@@ -45,10 +45,24 @@ export class SummaryStorageService {
       if (isFirestoreReady()) {
         try {
           const docRef = doc(db, 'summaries', summary.id);
-          await setDoc(docRef, summary);
-          console.log('SummaryStorage: Summary saved to Firestore');
+          
+          // Convert date strings to Firestore Timestamps for better querying
+          const firestoreSummary = {
+            ...summary,
+            createdAt: Timestamp.fromDate(new Date(summary.createdAt)),
+            deletedAt: summary.deletedAt ? Timestamp.fromDate(new Date(summary.deletedAt)) : null
+          };
+          
+          await handleFirestoreOperation(
+            () => setDoc(docRef, firestoreSummary),
+            'saveSummary'
+          );
+          console.log('SummaryStorage: Summary saved to Firestore with Timestamp');
         } catch (firestoreError: any) {
           console.warn('SummaryStorage: Firestore save failed:', firestoreError.code);
+          if (firestoreError.code === 'permission-denied') {
+            console.warn('SummaryStorage: Permission denied - check Firestore rules');
+          }
         }
       }
       
@@ -127,13 +141,26 @@ export class SummaryStorageService {
             limit(limitCount)
           );
           
-          const querySnapshot = await getDocs(q);
+          const querySnapshot = await handleFirestoreOperation(
+            () => getDocs(q),
+            'getUserSummaries query'
+          );
           const summaries: SummaryResult[] = [];
           
           querySnapshot.forEach((doc) => {
-            const data = doc.data() as SummaryResult;
+            const data = doc.data() as any;
             if (!data.isDeleted) {
-              summaries.push(data);
+              // Convert Firestore Timestamps back to ISO strings for consistency
+              const summary: SummaryResult = {
+                ...data,
+                createdAt: data.createdAt instanceof Timestamp 
+                  ? data.createdAt.toDate().toISOString() 
+                  : data.createdAt,
+                deletedAt: data.deletedAt instanceof Timestamp 
+                  ? data.deletedAt.toDate().toISOString() 
+                  : data.deletedAt
+              };
+              summaries.push(summary);
             }
           });
           
@@ -142,7 +169,17 @@ export class SummaryStorageService {
             return summaries;
           }
         } catch (firestoreError: any) {
-          console.warn('SummaryStorage: Firestore query failed:', firestoreError.code);
+          console.error('SummaryStorage: Firestore query failed:', {
+            code: firestoreError.code,
+            message: firestoreError.message,
+            userId: userId,
+            isFirestoreReady: isFirestoreReady()
+          });
+          
+          // If it's a missing index error, provide helpful information
+          if (firestoreError.code === 'failed-precondition' && firestoreError.message.includes('index')) {
+            console.error('SummaryStorage: Missing Firestore index! Run: firebase deploy --only firestore:indexes');
+          }
         }
       }
       

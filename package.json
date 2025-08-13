@@ -18,7 +18,9 @@
     "firebase:deploy": "firebase deploy",
     "firebase:deploy:rules": "firebase deploy --only firestore:rules",
     "firebase:deploy:hosting": "firebase deploy --only hosting",
-    "debug:auth": "node debug-auth.js"
+    "debug:auth": "node debug-auth.js",
+    "debug:ai": "node debug-ai-summary.js",
+    "debug:firestore": "node debug-firestore.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",

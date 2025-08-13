@@ -398,10 +398,10 @@ export class NotionOAuthService {
           console.warn('Invalid item (not an object):', item);
           return false;
         }
-        if (!item.content || typeof item.content !== 'string') {
-          console.warn('Item missing content property:', item.title || 'Untitled');
-          // Add default content if missing
-          item.content = item.content || 'No content available';
+        if (!item.content || typeof item.content !== 'string' || item.content.trim().length === 0) {
+          console.warn('Item missing or empty content property:', item.title || 'Untitled');
+          // Skip items with no meaningful content instead of adding placeholder
+          return false;
         }
         if (!item.title) {
           item.title = 'Untitled';

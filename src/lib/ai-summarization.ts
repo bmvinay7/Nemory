@@ -1,10 +1,21 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { summaryStorageService } from './summary-storage';
 
-// Initialize Gemini client
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GOOGLE_AI_API_KEY || '');
-const getModel = (variant: 'pro' | 'flash' = 'pro') =>
-  genAI.getGenerativeModel({ model: variant === 'pro' ? 'gemini-1.5-pro' : 'gemini-1.5-flash' });
+// Initialize Gemini client with validation
+const API_KEY = import.meta.env.VITE_GOOGLE_AI_API_KEY;
+if (!API_KEY) {
+  console.error('❌ VITE_GOOGLE_AI_API_KEY is not set in environment variables');
+  console.error('   Please add your Google AI API key to your .env file');
+  console.error('   Get your API key from: https://makersuite.google.com/app/apikey');
+}
+
+const genAI = new GoogleGenerativeAI(API_KEY || '');
+const getModel = (variant: 'pro' | 'flash' = 'pro') => {
+  if (!API_KEY) {
+    throw new Error('Google AI API key is not configured. Please set VITE_GOOGLE_AI_API_KEY in your environment variables.');
+  }
+  return genAI.getGenerativeModel({ model: variant === 'pro' ? 'gemini-1.5-pro' : 'gemini-1.5-flash' });
+};
 
 const PREFER_FLASH_FLAG = 'gemini_prefer_flash_this_session';
 const getPreferredModel = (): 'pro' | 'flash' => {
@@ -72,8 +83,14 @@ export class AISummarizationService {
   private readonly REPETITION_THRESHOLD = 0.01; // 1% threshold for allowing repetition
 
   constructor() {
-    if (!import.meta.env.VITE_GOOGLE_AI_API_KEY) {
-      console.warn('Google AI API key not found. AI features will be disabled.');
+    if (!API_KEY) {
+      console.error('❌ Google AI API key not found. AI features will be disabled.');
+      console.error('   To enable AI summarization:');
+      console.error('   1. Get an API key from: https://makersuite.google.com/app/apikey');
+      console.error('   2. Add VITE_GOOGLE_AI_API_KEY=your_key_here to your .env file');
+      console.error('   3. Restart your development server');
+    } else {
+      console.log('✅ Google AI API key configured successfully');
     }
   }
 
@@ -226,10 +243,12 @@ export class AISummarizationService {
     
     // Validate content items have required properties
     const validContent = content.filter(item => {
-      if (!item || !item.content) {
+      if (!item || !item.content || typeof item.content !== 'string' || item.content.trim().length === 0) {
         console.warn(`⚠️ Skipping invalid content item:`, {
           title: item?.title || 'No title',
           hasContent: !!item?.content,
+          contentType: typeof item?.content,
+          contentLength: item?.content?.length || 0,
           type: item?.type || 'unknown'
         });
         return false;
@@ -665,6 +684,18 @@ export class AISummarizationService {
     userId: string
   ): Promise<SummaryResult> {
     try {
+      // Input validation
+      if (!content || !Array.isArray(content)) {
+        throw new Error('Invalid content provided: content must be an array');
+      }
+      
+      if (!userId || typeof userId !== 'string') {
+        throw new Error('Invalid userId provided: userId must be a non-empty string');
+      }
+      
+      if (!options) {
+        throw new Error('Invalid options provided: options object is required');
+      }
       console.log(`🎯 SMART SUMMARIZATION STARTING:`);
       console.log(`   Available content items: ${content.length}`);
       console.log(`   Content types: ${content.map((c: any) => c.contentType || c.type).join(', ')}`);
@@ -673,9 +704,14 @@ export class AISummarizationService {
       console.log(`📋 ALL AVAILABLE CONTENT:`);
       content.forEach((item, index) => {
         const itemAny = item as any;
-        console.log(`   ${index + 1}. "${item.title}" (${itemAny.contentType || item.type})`);
-        console.log(`      Content preview: "${item.content.substring(0, 100)}..."`);
-        console.log(`      Word count: ${itemAny.wordCount || item.content.split(/\s+/).length}`);
+        console.log(`   ${index + 1}. "${item.title || 'No title'}" (${itemAny.contentType || item.type || 'unknown'})`);
+        
+        if (item.content && typeof item.content === 'string') {
+          console.log(`      Content preview: "${item.content.substring(0, 100)}..."`);
+          console.log(`      Word count: ${itemAny.wordCount || item.content.split(/\s+/).length}`);
+        } else {
+          console.log(`      ❌ Invalid content: ${typeof item.content} - ${item.content}`);
+        }
       });
       
       // Step 1: Smart note selection (SELECTS ONLY ONE)
@@ -694,15 +730,17 @@ export class AISummarizationService {
       }
       
       // Validate selectedNote has required properties
-      if (!selectedNote.content) {
-        console.error('❌ Selected note has no content!');
+      if (!selectedNote.content || typeof selectedNote.content !== 'string') {
+        console.error('❌ Selected note has invalid content!');
         console.error('   Selected note:', {
           title: selectedNote.title,
           type: selectedNote.type,
           id: selectedNote.id,
-          hasContent: !!selectedNote.content
+          hasContent: !!selectedNote.content,
+          contentType: typeof selectedNote.content,
+          contentValue: selectedNote.content
         });
-        throw new Error('Selected note has no content to summarize');
+        throw new Error('Selected note has no valid content to summarize');
       }
       
       console.log(`🎯 SINGLE NOTE SELECTED FOR PROCESSING:`);
@@ -808,9 +846,28 @@ export class AISummarizationService {
       }
 
       return result;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Smart AI Summarization failed:', error);
-      throw new Error('Failed to generate summary. Please try again.');
+      
+      // Provide more specific error messages based on the error type
+      if (error.message && error.message.includes('content')) {
+        throw new Error(`Content validation error: ${error.message}`);
+      } else if (error.message && error.message.includes('API')) {
+        throw new Error('AI service temporarily unavailable. Please try again in a few minutes.');
+      } else if (error.message && error.message.includes('quota')) {
+        throw new Error('AI service quota exceeded. Please try again later.');
+      } else if (error.message && error.message.includes('network')) {
+        throw new Error('Network error. Please check your connection and try again.');
+      } else {
+        // Log the full error for debugging but show a user-friendly message
+        console.error('Full error details:', {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+          code: error.code
+        });
+        throw new Error(`Failed to generate summary: ${error.message || 'Unknown error occurred'}`);
+      }
     }
   }
 

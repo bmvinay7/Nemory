@@ -50,22 +50,40 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firebase Authentication and get a reference to the service
 export const auth = getAuth(app);
 
-// Initialize Cloud Firestore with robust networking options to avoid WebChannel 400 issues
-const baseFirestore = initializeFirestore(app, {
-  experimentalAutoDetectLongPolling: true,
-  ignoreUndefinedProperties: true,
-});
+// Initialize Cloud Firestore - use standard getFirestore for better compatibility
+export const db = getFirestore(app);
 
+// Connect to emulator if specified
 if (import.meta.env.DEV && import.meta.env.VITE_USE_FIRESTORE_EMULATOR === 'true') {
   try {
-    connectFirestoreEmulator(baseFirestore, 'localhost', 8080);
+    connectFirestoreEmulator(db, 'localhost', 8080);
     console.log('Firebase: Connected to Firestore emulator');
   } catch (error) {
     console.log('Firebase: Firestore emulator already connected or not available');
   }
 }
 
-export const db = baseFirestore;
+// Add global error handler for Firestore operations
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    if (event.reason && event.reason.code && event.reason.code.startsWith('firestore/')) {
+      console.error('🔥 Firestore Error Detected:', {
+        code: event.reason.code,
+        message: event.reason.message,
+        stack: event.reason.stack
+      });
+      
+      // Provide user-friendly error messages
+      if (event.reason.code === 'firestore/permission-denied') {
+        console.error('   💡 This is likely a Firestore security rules issue');
+      } else if (event.reason.code === 'firestore/unavailable') {
+        console.error('   💡 Firestore service is temporarily unavailable');
+      } else if (event.reason.message.includes('400')) {
+        console.error('   💡 This might be a malformed query or missing index');
+      }
+    }
+  });
+}
 
 // Firestore is ready by default with standard getFirestore()
 let firestoreReady = true;
@@ -108,6 +126,36 @@ if (typeof window !== 'undefined' && import.meta.env.VITE_DISABLE_FIRESTORE_NETW
 }
 
 export const isFirestoreReady = () => firestoreReady;
+
+// Utility function to handle Firestore operations with better error reporting
+export const handleFirestoreOperation = async <T>(
+  operation: () => Promise<T>,
+  operationName: string
+): Promise<T> => {
+  try {
+    return await operation();
+  } catch (error: any) {
+    console.error(`🔥 Firestore ${operationName} failed:`, {
+      code: error.code,
+      message: error.message,
+      operationName,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Provide specific error context
+    if (error.code === 'firestore/permission-denied') {
+      console.error(`   💡 Permission denied for ${operationName} - check Firestore rules`);
+    } else if (error.code === 'firestore/failed-precondition') {
+      console.error(`   💡 Failed precondition for ${operationName} - likely missing index`);
+      console.error(`   💡 Run: firebase deploy --only firestore:indexes`);
+    } else if (error.message && error.message.includes('400')) {
+      console.error(`   💡 HTTP 400 error for ${operationName} - malformed request`);
+      console.error(`   💡 Check query parameters and field types`);
+    }
+    
+    throw error;
+  }
+};
 
 // Initialize Analytics (only in production and when supported)
 export const analytics = typeof window !== 'undefined' && import.meta.env.PROD 
