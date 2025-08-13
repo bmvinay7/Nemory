@@ -23,8 +23,20 @@ const validateFirebaseConfig = () => {
   const missingFields = requiredFields.filter(field => !firebaseConfig[field as keyof typeof firebaseConfig]);
   
   if (missingFields.length > 0) {
-    console.error('Firebase: Missing required configuration fields:', missingFields);
+    if (import.meta.env.DEV) {
+      console.error('Firebase: Missing required configuration fields:', missingFields);
+    }
     throw new Error(`Firebase configuration incomplete. Missing: ${missingFields.join(', ')}`);
+  }
+  
+  // Validate API key format
+  if (firebaseConfig.apiKey && !firebaseConfig.apiKey.startsWith('AIza')) {
+    throw new Error('Invalid Firebase API key format');
+  }
+  
+  // Validate project ID format
+  if (firebaseConfig.projectId && !/^[a-z0-9-]+$/.test(firebaseConfig.projectId)) {
+    throw new Error('Invalid Firebase project ID format');
   }
   
   if (import.meta.env.DEV) {

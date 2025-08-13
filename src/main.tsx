@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
+import './lib/env-validation' // Validate environment on startup
 
 // In development, ensure no stale service workers are controlling the page
 if (import.meta.env.DEV && 'serviceWorker' in navigator) {

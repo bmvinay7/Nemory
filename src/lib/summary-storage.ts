@@ -31,15 +31,43 @@ export class SummaryStorageService {
   private readonly RECYCLE_BIN_DAYS = 30;
 
   /**
-   * Save a summary to storage
+   * Save a summary to storage with security validation
    */
   async saveSummary(summary: SummaryResult): Promise<void> {
     try {
-      console.log('SummaryStorage: Saving summary:', summary.id);
+      // Input validation
+      if (!summary || typeof summary !== 'object') {
+        throw new Error('Invalid summary object');
+      }
+
+      if (!summary.id || typeof summary.id !== 'string' || summary.id.length > 100) {
+        throw new Error('Invalid summary ID');
+      }
+
+      if (!summary.userId || typeof summary.userId !== 'string' || summary.userId.length > 100) {
+        throw new Error('Invalid user ID');
+      }
+
+      // Sanitize summary content
+      const sanitizedSummary = {
+        ...summary,
+        summary: typeof summary.summary === 'string' ? summary.summary.substring(0, 10000) : '',
+        keyInsights: Array.isArray(summary.keyInsights) ?
+          summary.keyInsights.slice(0, 10).map(insight =>
+            typeof insight === 'string' ? insight.substring(0, 500) : ''
+          ) : [],
+        actionItems: Array.isArray(summary.actionItems) ?
+          summary.actionItems.slice(0, 20).map(item => ({
+            ...item,
+            text: typeof item.text === 'string' ? item.text.substring(0, 300) : ''
+          })) : []
+      };
+
+      console.log('SummaryStorage: Saving summary:', sanitizedSummary.id);
 
       // Always save to localStorage for reliability
-      const localKey = `summary_${summary.userId}_${summary.id}`;
-      localStorage.setItem(localKey, JSON.stringify(summary));
+      const localKey = `summary_${sanitizedSummary.userId}_${sanitizedSummary.id}`;
+      localStorage.setItem(localKey, JSON.stringify(sanitizedSummary));
 
       // Try to save to Firestore if available
       if (isFirestoreReady()) {

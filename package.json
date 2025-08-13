@@ -6,8 +6,11 @@
   "scripts": {
     "dev": "vite",
     "dev:with-bot": "concurrently \"npm run dev\" \"npm run bot:dev\"",
-    "build": "tsc && vite build",
+    "build": "npm run security:check && tsc && vite build",
     "build:dev": "vite build --mode development",
+    "security:check": "npm audit --audit-level moderate",
+    "security:fix": "npm audit fix",
+    "validate:production": "node scripts/validate-production.js",
     "lint": "eslint .",
     "preview": "vite preview",
     "test:notion": "node test-notion-serverless.js",

@@ -24,22 +24,27 @@ class TelegramClientService {
   private baseUrl: string;
 
   constructor() {
-    // You'll need to set this in your environment variables
+    // Validate bot token from environment
     this.botToken = import.meta.env.VITE_TELEGRAM_BOT_TOKEN || '';
+    if (this.botToken && !this.botToken.match(/^\d+:[A-Za-z0-9_-]{35}$/)) {
+      console.error('Invalid Telegram bot token format');
+      this.botToken = '';
+    }
     this.baseUrl = `https://api.telegram.org/bot${this.botToken}`;
   }
 
   /**
-   * Validate chat ID format
+   * Validate chat ID format with strict validation
    */
   validateChatId(chatId: string): { isValid: boolean; error?: string } {
-    if (!chatId || chatId.trim() === '') {
+    if (!chatId || typeof chatId !== 'string' || chatId.trim() === '') {
       return { isValid: false, error: 'Chat ID is required' };
     }
 
-    // Telegram chat IDs can be numbers or strings starting with @
     const trimmedId = chatId.trim();
-    if (!/^-?\d+$/.test(trimmedId) && !trimmedId.startsWith('@')) {
+    
+    // Strict validation for Telegram chat IDs
+    if (!/^-?\d{1,20}$/.test(trimmedId) && !/^@[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(trimmedId)) {
       return { isValid: false, error: 'Invalid chat ID format' };
     }
 
@@ -47,65 +52,103 @@ class TelegramClientService {
   }
 
   /**
-   * Escape text for Telegram MarkdownV2.
+   * Secure text escaping for Telegram MarkdownV2
    * Characters to escape: _ * [ ] ( ) ~ ` > # + - = | { } . !
    */
   private escapeMarkdownV2(text: string): string {
-    if (!text) return '';
-    // Escape backslashes first, then other characters
-    return text
+    if (!text || typeof text !== 'string') return '';
+    
+    // Sanitize input to prevent injection attacks
+    const sanitized = text
+      .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
+      .substring(0, 4000); // Limit length to prevent abuse
+    
+    // Escape special MarkdownV2 characters
+    return sanitized
       .replace(/\\/g, '\\\\')
       .replace(/[_*\[\]()~`>#+\-=|{}\.!]/g, '\\$&');
   }
 
   /**
-   * Format summary content for Telegram message
+   * Format summary content for Telegram message with security measures
    */
   private formatSummaryForTelegram(data: TelegramMessage): string {
+    // Validate input data
+    if (!data || typeof data !== 'object') {
+      throw new Error('Invalid message data');
+    }
+
     const { summary, actionItems, keyInsights, priority, readingTime } = data;
     
+    // Validate required fields
+    if (!summary || typeof summary !== 'string') {
+      throw new Error('Invalid summary data');
+    }
+
     let message = `🧠 *Nemory AI Summary*\n\n`;
     
-    // Priority indicator
-    const priorityEmoji = priority === 'high' ? '🔴' : priority === 'medium' ? '🟡' : '🟢';
-    message += `${priorityEmoji} *Priority:* ${priority.toUpperCase()}\n`;
-    message += `⏱️ *Reading Time:* ${readingTime} minutes\n\n`;
+    // Priority indicator with validation
+    const validPriorities = ['high', 'medium', 'low'];
+    const safePriority = validPriorities.includes(priority) ? priority : 'medium';
+    const priorityEmoji = safePriority === 'high' ? '🔴' : safePriority === 'medium' ? '🟡' : '🟢';
     
-    // Main summary
-    message += `📝 *Summary:*\n${this.escapeMarkdownV2(summary)}\n\n`;
+    message += `${priorityEmoji} *Priority:* ${safePriority.toUpperCase()}\n`;
+    message += `⏱️ *Reading Time:* ${Math.max(1, Math.min(readingTime || 1, 60))} minutes\n\n`;
     
-    // Key insights
-    if (keyInsights.length > 0) {
+    // Main summary with length limit
+    const truncatedSummary = summary.length > 2000 ? summary.substring(0, 2000) + '...' : summary;
+    message += `📝 *Summary:*\n${this.escapeMarkdownV2(truncatedSummary)}\n\n`;
+    
+    // Key insights with validation
+    if (Array.isArray(keyInsights) && keyInsights.length > 0) {
       message += `💡 *Key Insights:*\n`;
-      keyInsights.forEach((insight, index) => {
-        message += `${index + 1}\\. ${this.escapeMarkdownV2(insight)}\n`;
+      keyInsights.slice(0, 5).forEach((insight, index) => {
+        if (insight && typeof insight === 'string') {
+          const truncatedInsight = insight.length > 200 ? insight.substring(0, 200) + '...' : insight;
+          message += `${index + 1}\\. ${this.escapeMarkdownV2(truncatedInsight)}\n`;
+        }
       });
       message += `\n`;
     }
     
-    // Action items
-    if (actionItems.length > 0) {
-      message += `✅ *Action Items \\(${actionItems.length}\\):*\n`;
-      actionItems.forEach((item, index) => {
-        const priorityIcon = item.priority === 'high' ? '🔴' : item.priority === 'medium' ? '🟡' : '🟢';
-        message += `${index + 1}\\. ${priorityIcon} ${this.escapeMarkdownV2(item.text)}`;
-        if (item.dueDate) {
-          message += ` \\(Due: ${this.escapeMarkdownV2(item.dueDate)}\\)`;
+    // Action items with validation
+    if (Array.isArray(actionItems) && actionItems.length > 0) {
+      message += `✅ *Action Items \\(${Math.min(actionItems.length, 10)}\\):*\n`;
+      actionItems.slice(0, 10).forEach((item, index) => {
+        if (item && typeof item === 'object' && item.text) {
+          const validItemPriorities = ['high', 'medium', 'low'];
+          const itemPriority = validItemPriorities.includes(item.priority) ? item.priority : 'medium';
+          const priorityIcon = itemPriority === 'high' ? '🔴' : itemPriority === 'medium' ? '🟡' : '🟢';
+          
+          const truncatedText = item.text.length > 150 ? item.text.substring(0, 150) + '...' : item.text;
+          message += `${index + 1}\\. ${priorityIcon} ${this.escapeMarkdownV2(truncatedText)}`;
+          
+          if (item.dueDate && typeof item.dueDate === 'string') {
+            const sanitizedDate = item.dueDate.replace(/[^\d\-\/\s:]/g, '').substring(0, 20);
+            message += ` \\(Due: ${this.escapeMarkdownV2(sanitizedDate)}\\)`;
+          }
+          message += `\n`;
         }
-        message += `\n`;
       });
       message += `\n`;
     }
     
     message += `\\-\\-\\-\n`;
     message += `Generated by Nemory AI 🚀\n`;
-    message += `${this.escapeMarkdownV2(new Date().toLocaleDateString())} at ${this.escapeMarkdownV2(new Date().toLocaleTimeString())}`;
+    const safeDate = new Date().toLocaleDateString().replace(/[^\d\/\-]/g, '');
+    const safeTime = new Date().toLocaleTimeString().replace(/[^\d:APM\s]/g, '');
+    message += `${this.escapeMarkdownV2(safeDate)} at ${this.escapeMarkdownV2(safeTime)}`;
+    
+    // Final length check
+    if (message.length > 4096) {
+      message = message.substring(0, 4090) + '...';
+    }
     
     return message;
   }
 
   /**
-   * Send message via Telegram Bot API
+   * Send message via Telegram Bot API with security measures
    */
   async sendMessage(chatId: string, text: string): Promise<TelegramDeliveryResult> {
     try {
@@ -124,14 +167,25 @@ class TelegramClientService {
         };
       }
 
+      // Validate message text
+      if (!text || typeof text !== 'string' || text.trim().length === 0) {
+        return {
+          success: false,
+          error: 'Message text is required'
+        };
+      }
+
+      // Limit message length
+      const truncatedText = text.length > 4096 ? text.substring(0, 4090) + '...' : text;
+
       const response = await fetch(`${this.baseUrl}/sendMessage`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          chat_id: chatId,
-          text: text,
+          chat_id: chatId.trim(),
+          text: truncatedText,
           parse_mode: 'MarkdownV2'
         }),
       });
@@ -160,10 +214,25 @@ class TelegramClientService {
   }
 
   /**
-   * Send summary via Telegram
+   * Send summary via Telegram with security validation
    */
   async sendSummary(data: TelegramMessage): Promise<TelegramDeliveryResult> {
     try {
+      // Validate input data structure
+      if (!data || typeof data !== 'object') {
+        return {
+          success: false,
+          error: 'Invalid message data provided'
+        };
+      }
+
+      if (!data.chatId || !data.summary) {
+        return {
+          success: false,
+          error: 'Missing required message fields'
+        };
+      }
+
       const messageText = this.formatSummaryForTelegram(data);
       return await this.sendMessage(data.chatId, messageText);
     } catch (error) {
@@ -175,20 +244,20 @@ class TelegramClientService {
   }
 
   /**
-   * Send test message
+   * Send test message with security validation
    */
   async sendTestMessage(chatId: string): Promise<TelegramDeliveryResult> {
     const testMessage = `🧠 *Nemory AI Test Message*\n\n` +
       `Hello\\! This is a test message from Nemory AI\\.\n\n` +
       `Your Telegram integration is working correctly\\! 🎉\n\n` +
       `\\-\\-\\-\n` +
-      `Generated at ${new Date().toLocaleString()}`;
+      `Generated at ${this.escapeMarkdownV2(new Date().toLocaleString())}`;
 
     return await this.sendMessage(chatId, testMessage);
   }
 
   /**
-   * Get bot info (for testing)
+   * Get bot info with timeout and error handling
    */
   async getBotInfo(): Promise<any> {
     try {
@@ -196,7 +265,15 @@ class TelegramClientService {
         throw new Error('Bot token not configured');
       }
 
-      const response = await fetch(`${this.baseUrl}/getMe`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+      const response = await fetch(`${this.baseUrl}/getMe`, {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
       const result = await response.json();
       
       if (result.ok) {
@@ -211,10 +288,10 @@ class TelegramClientService {
   }
 
   /**
-   * Check if bot token is configured
+   * Check if bot token is configured and valid
    */
   isConfigured(): boolean {
-    return !!this.botToken;
+    return !!this.botToken && this.botToken.match(/^\d+:[A-Za-z0-9_-]{35}$/) !== null;
   }
 }
 

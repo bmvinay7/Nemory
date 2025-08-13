@@ -1,7 +1,7 @@
 // Simple Telegram bot to get chat IDs and test functionality
 // Run this with: node telegram-bot.js
 
-const BOT_TOKEN = '8139165226:AAG5-DGIecGOZLfB9svseujCQpx47GX1HvY';
+const BOT_TOKEN = process.env.VITE_TELEGRAM_BOT_TOKEN || '';
 const API_URL = `https://api.telegram.org/bot${BOT_TOKEN}`;
 
 let offset = 0;
@@ -93,8 +93,9 @@ async function main() {
   console.log('🚀 Starting Nemory Telegram Bot...');
   
   // Check if bot token is set
-  if (BOT_TOKEN === 'YOUR_BOT_TOKEN_HERE') {
-    console.error('❌ Please set your bot token in the BOT_TOKEN variable');
+  if (!BOT_TOKEN || BOT_TOKEN === 'YOUR_BOT_TOKEN_HERE') {
+    console.error('❌ Please set VITE_TELEGRAM_BOT_TOKEN in your environment variables');
+    console.error('   Create a .env file with: VITE_TELEGRAM_BOT_TOKEN=your_bot_token_here');
     process.exit(1);
   }
   

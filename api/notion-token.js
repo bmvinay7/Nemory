@@ -5,6 +5,11 @@
 const recentRequests = new Map();
 const REQUEST_CACHE_DURATION = 30000; // 30 seconds
 
+// Rate limiting
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW = 60000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 10; // Max 10 requests per minute per IP
+
 // Clean up old requests periodically
 setInterval(() => {
   const now = Date.now();
@@ -13,13 +18,59 @@ setInterval(() => {
       recentRequests.delete(key);
     }
   }
+  // Clean up rate limit entries
+  for (const [ip, data] of rateLimitMap.entries()) {
+    if (now - data.windowStart > RATE_LIMIT_WINDOW) {
+      rateLimitMap.delete(ip);
+    }
+  }
 }, 60000); // Clean up every minute
 
+// Rate limiting function
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const clientData = rateLimitMap.get(ip) || { count: 0, windowStart: now };
+  
+  // Reset window if expired
+  if (now - clientData.windowStart > RATE_LIMIT_WINDOW) {
+    clientData.count = 0;
+    clientData.windowStart = now;
+  }
+  
+  clientData.count++;
+  rateLimitMap.set(ip, clientData);
+  
+  return clientData.count <= RATE_LIMIT_MAX_REQUESTS;
+}
+
 export default async function handler(req, res) {
-  // Set CORS headers to allow frontend requests
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // Get client IP for rate limiting
+  const clientIP = req.headers['x-forwarded-for'] || req.connection.remoteAddress || 'unknown';
+  
+  // Check rate limit
+  if (!checkRateLimit(clientIP)) {
+    return res.status(429).json({
+      error: 'rate_limit_exceeded',
+      error_description: 'Too many requests. Please try again later.',
+      retry_after: Math.ceil(RATE_LIMIT_WINDOW / 1000)
+    });
+  }
+
+  // Set CORS headers with proper origin validation
+  const allowedOrigins = [
+    'http://localhost:8080',
+    'http://localhost:3000',
+    'https://nemory.vercel.app',
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null
+  ].filter(Boolean);
+  
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
 
   // Handle preflight OPTIONS request
   if (req.method === 'OPTIONS') {
@@ -54,21 +105,39 @@ export default async function handler(req, res) {
       clientId: client_id
     });
 
-    // Validate required parameters
-    if (!code || !redirect_uri || !client_id || !client_secret) {
-      const missing = [];
-      if (!code) missing.push('code');
-      if (!redirect_uri) missing.push('redirect_uri');
-      if (!client_id) missing.push('client_id');
-      if (!client_secret) missing.push('client_secret');
-      
-      console.error('Missing required parameters:', missing);
+    // Input validation and sanitization
+    if (!code || typeof code !== 'string' || code.length > 1000) {
       return res.status(400).json({ 
         error: 'invalid_request',
-        error_description: `Missing required parameters: ${missing.join(', ')}`,
-        details: 'All OAuth parameters are required for token exchange'
+        error_description: 'Invalid or missing authorization code'
       });
     }
+    
+    if (!redirect_uri || typeof redirect_uri !== 'string' || !redirect_uri.startsWith('http')) {
+      return res.status(400).json({ 
+        error: 'invalid_request',
+        error_description: 'Invalid or missing redirect URI'
+      });
+    }
+    
+    if (!client_id || typeof client_id !== 'string' || client_id.length > 100) {
+      return res.status(400).json({ 
+        error: 'invalid_request',
+        error_description: 'Invalid or missing client ID'
+      });
+    }
+    
+    if (!client_secret || typeof client_secret !== 'string' || client_secret.length > 200) {
+      return res.status(400).json({ 
+        error: 'invalid_request',
+        error_description: 'Invalid or missing client secret'
+      });
+    }
+
+    // Sanitize inputs
+    const sanitizedCode = code.trim().replace(/[^\w-]/g, '');
+    const sanitizedClientId = client_id.trim();
+    const sanitizedClientSecret = client_secret.trim();
 
     // Validate grant type
     if (grant_type !== 'authorization_code') {
@@ -105,11 +174,11 @@ export default async function handler(req, res) {
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
-        'Authorization': `Basic ${Buffer.from(`${client_id}:${client_secret}`).toString('base64')}`,
+        'Authorization': `Basic ${Buffer.from(`${sanitizedClientId}:${sanitizedClientSecret}`).toString('base64')}`,
       },
       body: JSON.stringify({
         grant_type: grant_type,
-        code: code.trim(),
+        code: sanitizedCode,
         redirect_uri: redirect_uri,
       }),
     });
@@ -179,8 +248,7 @@ export default async function handler(req, res) {
     
     return res.status(500).json({
       error: 'internal_server_error',
-      error_description: 'An internal error occurred during token exchange',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error_description: 'An internal error occurred during token exchange'
     });
   }
 }

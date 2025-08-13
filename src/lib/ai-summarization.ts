@@ -4,9 +4,13 @@ import { summaryStorageService } from './summary-storage';
 // Initialize Gemini client with validation
 const API_KEY = import.meta.env.VITE_GOOGLE_AI_API_KEY;
 if (!API_KEY) {
-  console.error('❌ VITE_GOOGLE_AI_API_KEY is not set in environment variables');
-  console.error('   Please add your Google AI API key to your .env file');
-  console.error('   Get your API key from: https://makersuite.google.com/app/apikey');
+  if (import.meta.env.DEV) {
+    console.error('❌ VITE_GOOGLE_AI_API_KEY is not set in environment variables');
+    console.error('   Please add your Google AI API key to your .env file');
+    console.error('   Get your API key from: https://makersuite.google.com/app/apikey');
+  }
+} else if (API_KEY.length < 20 || !API_KEY.startsWith('AI')) {
+  console.error('❌ Invalid Google AI API key format');
 }
 
 const genAI = new GoogleGenerativeAI(API_KEY || '');
