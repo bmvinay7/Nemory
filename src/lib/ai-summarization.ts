@@ -88,13 +88,17 @@ export class AISummarizationService {
 
   constructor() {
     if (!API_KEY) {
-      console.error('❌ Google AI API key not found. AI features will be disabled.');
-      console.error('   To enable AI summarization:');
-      console.error('   1. Get an API key from: https://makersuite.google.com/app/apikey');
-      console.error('   2. Add VITE_GOOGLE_AI_API_KEY=your_key_here to your .env file');
-      console.error('   3. Restart your development server');
+      if (import.meta.env.DEV) {
+        console.error('❌ Google AI API key not found. AI features will be disabled.');
+        console.error('   To enable AI summarization:');
+        console.error('   1. Get an API key from: https://makersuite.google.com/app/apikey');
+        console.error('   2. Add VITE_GOOGLE_AI_API_KEY=your_key_here to your .env file');
+        console.error('   3. Restart your development server');
+      }
     } else {
-      console.log('✅ Google AI API key configured successfully');
+      if (import.meta.env.DEV) {
+        console.log('✅ Google AI API key configured successfully');
+      }
     }
   }
 

@@ -190,18 +190,21 @@ class EnvironmentValidator {
   public logResults(): void {
     const results = this.getValidationResults();
     
-    if (results.errors.length > 0) {
-      console.error('❌ Environment validation errors:');
-      results.errors.forEach(error => console.error(`   - ${error}`));
-    }
+    // Only log in development mode
+    if (import.meta.env.DEV) {
+      if (results.errors.length > 0) {
+        console.error('❌ Environment validation errors:');
+        results.errors.forEach(error => console.error(`   - ${error}`));
+      }
 
-    if (results.warnings.length > 0) {
-      console.warn('⚠️ Environment validation warnings:');
-      results.warnings.forEach(warning => console.warn(`   - ${warning}`));
-    }
+      if (results.warnings.length > 0) {
+        console.warn('⚠️ Environment validation warnings:');
+        results.warnings.forEach(warning => console.warn(`   - ${warning}`));
+      }
 
-    if (results.isValid && results.warnings.length === 0) {
-      console.log('✅ Environment validation passed');
+      if (results.isValid && results.warnings.length === 0) {
+        console.log('✅ Environment validation passed');
+      }
     }
   }
 }
