@@ -8,6 +8,7 @@ import { AuthModalProvider } from "@/contexts/AuthModalContext";
 import { NotionProvider } from "@/contexts/NotionContext";
 import { MetricsProvider } from "@/contexts/MetricsContext";
 import ErrorBoundary from "./components/ErrorBoundary";
+import ContextErrorBoundary from "./components/ContextErrorBoundary";
 import GlobalAuthModal from "./components/auth/GlobalAuthModal";
 import Index from "./pages/Index";
 import Dashboard from "./components/Dashboard";
@@ -22,10 +23,11 @@ const queryClient = new QueryClient();
 const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <AuthModalProvider>
-          <MetricsProvider>
-            <NotionProvider>
+      <ContextErrorBoundary>
+        <AuthProvider>
+          <AuthModalProvider>
+            <MetricsProvider>
+              <NotionProvider>
               <TooltipProvider>
                 <Toaster />
                 <Sonner />
@@ -61,6 +63,7 @@ const App = () => (
           </MetricsProvider>
         </AuthModalProvider>
       </AuthProvider>
+      </ContextErrorBoundary>
     </QueryClientProvider>
   </ErrorBoundary>
 );

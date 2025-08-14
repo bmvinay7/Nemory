@@ -34,7 +34,20 @@ interface MetricsProviderProps {
 }
 
 export const MetricsProvider: React.FC<MetricsProviderProps> = ({ children }) => {
-  const { currentUser } = useAuth();
+  // Safely get auth context with error handling
+  let currentUser = null;
+  let authLoading = true;
+  
+  try {
+    const auth = useAuth();
+    currentUser = auth.currentUser;
+    authLoading = auth.loading;
+  } catch (error) {
+    console.warn('MetricsProvider: Auth context not available yet, using defaults');
+    currentUser = null;
+    authLoading = true;
+  }
+  
   const [metrics, setMetrics] = useState<UserMetrics>({
     notesProcessed: 0,
     summariesSent: 0,
@@ -45,6 +58,11 @@ export const MetricsProvider: React.FC<MetricsProviderProps> = ({ children }) =>
 
   // Load metrics when user changes
   useEffect(() => {
+    // Don't do anything if auth is still loading
+    if (authLoading) {
+      return;
+    }
+    
     if (currentUser) {
       loadMetrics();
     } else {
@@ -57,7 +75,7 @@ export const MetricsProvider: React.FC<MetricsProviderProps> = ({ children }) =>
       });
       setLoading(false);
     }
-  }, [currentUser]);
+  }, [currentUser, authLoading]);
 
   const loadMetrics = async (retryCount = 0) => {
     if (!currentUser) return;
