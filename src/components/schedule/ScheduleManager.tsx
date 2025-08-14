@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Clock, Calendar, Settings, Play, Pause, Trash2, BarChart3, Zap, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,6 +40,8 @@ const ScheduleManager: React.FC = () => {
 
   // Listen for schedule execution events to refresh data
   useEffect(() => {
+    if (!currentUser) return;
+
     const handleScheduleExecuted = async (event: CustomEvent) => {
       console.log(`🔄 Schedule "${event.detail.scheduleName}" executed (success: ${event.detail.success}), refreshing data...`);
       
@@ -49,10 +51,14 @@ const ScheduleManager: React.FC = () => {
         return newSet;
       });
       
-      // Force refresh the schedule data
+      // Force refresh the schedule data directly
       try {
-        await loadSchedules();
-        await loadStats();
+        const userSchedules = await scheduleStorageService.getUserSchedules(currentUser.uid);
+        setSchedules(userSchedules);
+        
+        const scheduleStats = await scheduleStorageService.getScheduleStats(currentUser.uid);
+        setStats(scheduleStats);
+        
         console.log('✅ Schedule data refreshed after execution');
       } catch (error) {
         console.error('❌ Failed to refresh schedule data:', error);
@@ -71,7 +77,7 @@ const ScheduleManager: React.FC = () => {
       window.removeEventListener('scheduleExecuted', handleScheduleExecuted as EventListener);
       window.removeEventListener('scheduleStarted', handleScheduleStarted as EventListener);
     };
-  }, [loadSchedules, loadStats]);
+  }, [currentUser]);
 
   // Periodic refresh to keep schedule status updated
   useEffect(() => {
@@ -80,15 +86,19 @@ const ScheduleManager: React.FC = () => {
     const refreshInterval = setInterval(async () => {
       console.log('🔄 Periodic refresh of schedule data...');
       try {
-        await loadSchedules();
-        await loadStats();
+        // Call the functions directly to avoid dependency issues
+        const userSchedules = await scheduleStorageService.getUserSchedules(currentUser.uid);
+        setSchedules(userSchedules);
+        
+        const scheduleStats = await scheduleStorageService.getScheduleStats(currentUser.uid);
+        setStats(scheduleStats);
       } catch (error) {
         console.error('❌ Periodic refresh failed:', error);
       }
     }, 30000); // Refresh every 30 seconds for better responsiveness
 
     return () => clearInterval(refreshInterval);
-  }, [currentUser, loadSchedules, loadStats]);
+  }, [currentUser]);
 
   const checkIndexStatus = async () => {
     if (!currentUser) return;
@@ -110,7 +120,7 @@ const ScheduleManager: React.FC = () => {
     }
   };
 
-  const loadSchedules = useCallback(async () => {
+  const loadSchedules = async () => {
     if (!currentUser) return;
 
     try {
@@ -143,9 +153,9 @@ const ScheduleManager: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentUser]);
+  };
 
-  const loadStats = useCallback(async () => {
+  const loadStats = async () => {
     if (!currentUser) return;
 
     try {
@@ -154,7 +164,7 @@ const ScheduleManager: React.FC = () => {
     } catch (error) {
       console.error('Error loading schedule stats:', error);
     }
-  }, [currentUser]);
+  };
 
   const handleToggleSchedule = async (schedule: ScheduleConfig) => {
     if (!currentUser) return;
