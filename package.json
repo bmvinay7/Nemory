@@ -15,6 +15,7 @@
     "validate:production": "node scripts/validate-production.js",
     "security:audit": "node scripts/security-audit.js",
     "test:features": "node scripts/feature-test.js",
+    "test:comprehensive": "node scripts/comprehensive-test.js",
     "lint": "eslint .",
     "preview": "vite preview",
     "test:notion": "node test-notion-serverless.js",
