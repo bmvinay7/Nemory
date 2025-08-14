@@ -159,12 +159,21 @@ export class SummaryStorageService {
     try {
       console.log('SummaryStorage: Fetching summaries for user:', userId);
 
+      // Validate inputs
+      if (!userId || typeof userId !== 'string' || userId.trim().length === 0) {
+        throw new Error('Invalid userId provided to getUserSummaries');
+      }
+      
+      if (limitCount < 1 || limitCount > 100) {
+        limitCount = 10; // Default to safe limit
+      }
+
       // Try Firestore first
       if (isFirestoreReady()) {
         try {
           const q = query(
             collection(db, 'summaries'),
-            where('userId', '==', userId),
+            where('userId', '==', userId.trim()),
             orderBy('createdAt', 'desc'),
             limit(limitCount)
           );

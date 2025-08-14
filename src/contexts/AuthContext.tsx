@@ -15,6 +15,7 @@ import {
   signInWithCredential
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { scheduleManagerService } from '@/lib/schedule-manager';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -108,9 +109,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       setLoading(false);
+
+      // Start/stop schedule manager based on auth state
+      if (user) {
+        console.log('🔐 User authenticated, starting schedule manager');
+        scheduleManagerService.start(user.uid);
+      } else {
+        console.log('🔐 User logged out, stopping schedule manager');
+        scheduleManagerService.stop();
+      }
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      // Clean up schedule manager when component unmounts
+      scheduleManagerService.stop();
+    };
   }, []);
 
   const value = {

@@ -47,6 +47,20 @@ service cloud.firestore {
          request.auth.uid == request.resource.data.userId);
     }
     
+    // Allow authenticated users to read/write their own schedules
+    match /schedules/{scheduleId} {
+      allow read, write, create: if request.auth != null && 
+        (request.auth.uid == resource.data.userId || 
+         request.auth.uid == request.resource.data.userId);
+    }
+    
+    // Allow authenticated users to read/write their own schedule executions
+    match /schedule_executions/{executionId} {
+      allow read, write, create: if request.auth != null && 
+        (request.auth.uid == resource.data.userId || 
+         request.auth.uid == request.resource.data.userId);
+    }
+    
     // Deny all other access - only specific collections above are allowed
     match /{document=**} {
       allow read, write: if false;

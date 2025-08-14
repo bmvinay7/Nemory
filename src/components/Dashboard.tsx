@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMetrics } from '@/contexts/MetricsContext';
-import { Brain, LogOut, Settings, FileText, Mail, MessageCircle, BarChart3, User, RefreshCw } from 'lucide-react';
+import { Brain, LogOut, Settings, FileText, Mail, MessageCircle, BarChart3, User, RefreshCw, Clock } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/safe-card';
@@ -10,11 +10,12 @@ import AISummarization from './ai/AISummarization';
 import AccountLinking from './auth/AccountLinking';
 import TelegramSettings from './telegram/TelegramSettings';
 import TelegramConnectionStatus from './telegram/TelegramConnectionStatus';
+import ScheduleManager from './schedule/ScheduleManager';
 
 const Dashboard: React.FC = () => {
   const { currentUser, logout } = useAuth();
   const { metrics, loading: metricsLoading, refreshMetrics } = useMetrics();
-  const [activeTab, setActiveTab] = useState<'overview' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'settings' | 'schedules'>('overview');
   const [refreshing, setRefreshing] = useState(false);
 
   const handleLogout = async () => {
@@ -84,6 +85,17 @@ const Dashboard: React.FC = () => {
                   }`}
                 >
                   Overview
+                </button>
+                <button
+                  onClick={() => setActiveTab('schedules')}
+                  className={`flex items-center space-x-1 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                    activeTab === 'schedules'
+                      ? 'bg-pulse-100 text-pulse-700'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                >
+                  <Clock className="w-4 h-4" />
+                  <span>Schedules</span>
                 </button>
                 <button
                   onClick={() => setActiveTab('settings')}
@@ -285,6 +297,19 @@ const Dashboard: React.FC = () => {
             
             {/* Notion Integration */}
             <NotionConnect />
+          </>
+        ) : activeTab === 'schedules' ? (
+          <>
+            {/* Schedules Section */}
+            <div className="mb-8">
+              <h2 className="text-3xl font-display font-bold text-gray-900 mb-2">Automated Schedules</h2>
+              <p className="text-gray-600">
+                Set up automated AI summaries delivered to your preferred channels.
+              </p>
+            </div>
+
+            {/* Schedule Manager */}
+            <ScheduleManager />
           </>
         ) : (
           <>
