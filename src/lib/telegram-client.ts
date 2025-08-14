@@ -1,3 +1,5 @@
+import RobustErrorHandler from './robust-error-handler';
+
 interface TelegramMessage {
   chatId: string;
   summary: string;
@@ -37,36 +39,18 @@ class TelegramClientService {
    * Validate chat ID format with strict validation
    */
   validateChatId(chatId: string): { isValid: boolean; error?: string } {
-    if (!chatId || typeof chatId !== 'string' || chatId.trim() === '') {
-      return { isValid: false, error: 'Chat ID is required' };
-    }
-
-    const trimmedId = chatId.trim();
-    
-    // Strict validation for Telegram chat IDs
-    if (!/^-?\d{1,20}$/.test(trimmedId) && !/^@[a-zA-Z][a-zA-Z0-9_]{4,31}$/.test(trimmedId)) {
-      return { isValid: false, error: 'Invalid chat ID format' };
-    }
-
-    return { isValid: true };
+    const validation = RobustErrorHandler.validateChatId(chatId);
+    return {
+      isValid: validation.isValid,
+      error: validation.error
+    };
   }
 
   /**
    * Secure text escaping for Telegram MarkdownV2
-   * Characters to escape: _ * [ ] ( ) ~ ` > # + - = | { } . !
    */
   private escapeMarkdownV2(text: string): string {
-    if (!text || typeof text !== 'string') return '';
-    
-    // Sanitize input to prevent injection attacks
-    const sanitized = text
-      .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
-      .substring(0, 4000); // Limit length to prevent abuse
-    
-    // Escape special MarkdownV2 characters
-    return sanitized
-      .replace(/\\/g, '\\\\')
-      .replace(/[_*\[\]()~`>#+\-=|{}\.!]/g, '\\$&');
+    return RobustErrorHandler.sanitizeForTelegram(text);
   }
 
   /**

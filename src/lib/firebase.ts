@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, enableNetwork, disableNetwork, initializeFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getAnalytics } from 'firebase/analytics';
+import './firebase-diagnostics';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -65,13 +66,16 @@ export const auth = getAuth(app);
 // Initialize Cloud Firestore - use standard getFirestore for better compatibility
 export const db = getFirestore(app);
 
-// Connect to emulator if specified
+// Connect to emulator if specified (disabled by default for production stability)
 if (import.meta.env.DEV && import.meta.env.VITE_USE_FIRESTORE_EMULATOR === 'true') {
   try {
-    connectFirestoreEmulator(db, 'localhost', 8080);
-    console.log('Firebase: Connected to Firestore emulator');
+    // Only connect to emulator if it's explicitly enabled and running
+    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      connectFirestoreEmulator(db, 'localhost', 8080);
+      console.log('Firebase: Connected to Firestore emulator');
+    }
   } catch (error) {
-    console.log('Firebase: Firestore emulator already connected or not available');
+    console.log('Firebase: Firestore emulator connection failed, using production Firestore');
   }
 }
 
@@ -92,7 +96,19 @@ if (typeof window !== 'undefined') {
         console.error('   💡 Firestore service is temporarily unavailable');
       } else if (event.reason.message.includes('400')) {
         console.error('   💡 This might be a malformed query or missing index');
+      } else if (event.reason.message.includes('CORS') || event.reason.message.includes('access control')) {
+        console.error('   💡 CORS issue detected - check Firebase configuration');
+        console.error('   💡 Make sure your domain is authorized in Firebase Console');
       }
+    }
+  });
+
+  // Add specific CORS error handling
+  window.addEventListener('error', (event) => {
+    if (event.message && event.message.includes('CORS')) {
+      console.error('🚨 CORS Error Detected:', event.message);
+      console.error('   💡 Add your domain to Firebase Auth authorized domains');
+      console.error('   💡 Check Firebase Console > Authentication > Settings > Authorized domains');
     }
   });
 }
@@ -163,6 +179,18 @@ export const handleFirestoreOperation = async <T>(
     } else if (error.message && error.message.includes('400')) {
       console.error(`   💡 HTTP 400 error for ${operationName} - malformed request`);
       console.error(`   💡 Check query parameters and field types`);
+    } else if (error.message && (error.message.includes('CORS') || error.message.includes('access control'))) {
+      console.error(`   💡 CORS error for ${operationName} - domain authorization issue`);
+      console.error(`   💡 Add your domain to Firebase Console → Authentication → Authorized domains`);
+      console.error(`   💡 For localhost: Add 'localhost' to authorized domains`);
+      
+      // Show user-friendly error
+      if (typeof window !== 'undefined') {
+        const event = new CustomEvent('firebaseCORSError', {
+          detail: { operationName, error: error.message }
+        });
+        window.dispatchEvent(event);
+      }
     }
     
     throw error;

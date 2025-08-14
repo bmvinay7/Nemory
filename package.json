@@ -16,6 +16,8 @@
     "security:audit": "node scripts/security-audit.js",
     "test:features": "node scripts/feature-test.js",
     "test:comprehensive": "node scripts/comprehensive-test.js",
+    "fix:cors": "node fix-cors.js",
+    "test:robustness": "node test-robustness.js",
     "lint": "eslint .",
     "preview": "vite preview",
     "test:notion": "node test-notion-serverless.js",

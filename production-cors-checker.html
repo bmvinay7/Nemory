@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase CORS Checker</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #00ff00;
+        }
+        .error { color: #ff4444; }
+        .success { color: #44ff44; }
+        .warning { color: #ffaa00; }
+        .info { color: #4488ff; }
+        .box {
+            border: 1px solid #333;
+            padding: 15px;
+            margin: 10px 0;
+            background: #222;
+        }
+        button {
+            background: #333;
+            color: #00ff00;
+            border: 1px solid #555;
+            padding: 10px 20px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #444;
+        }
+        pre {
+            background: #111;
+            padding: 10px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚨 Firebase CORS Issue Checker</h1>
+    
+    <div class="box">
+        <h2>🔍 Current Environment</h2>
+        <div id="environment-info"></div>
+    </div>
+    
+    <div class="box">
+        <h2>🎯 Required Actions</h2>
+        <div id="required-actions"></div>
+    </div>
+    
+    <div class="box">
+        <h2>🔗 Quick Links</h2>
+        <button onclick="openFirebaseConsole()">Open Firebase Console</button>
+        <button onclick="openVercelDashboard()">Open Vercel Dashboard</button>
+        <button onclick="copyDomain()">Copy Current Domain</button>
+    </div>
+    
+    <div class="box">
+        <h2>📋 Step-by-Step Fix</h2>
+        <div id="step-by-step"></div>
+    </div>
+
+    <script>
+        function analyzeEnvironment() {
+            const domain = window.location.hostname;
+            const protocol = window.location.protocol;
+            const port = window.location.port;
+            const fullURL = window.location.href;
+            const isProduction = !domain.includes('localhost') && domain !== '127.0.0.1';
+            const isVercel = domain.includes('vercel.app');
+            const isNetlify = domain.includes('netlify.app');
+            
+            const envInfo = document.getElementById('environment-info');
+            envInfo.innerHTML = `
+                <div class="info">🌐 Domain: <strong>${domain}</strong></div>
+                <div class="info">🔒 Protocol: <strong>${protocol}</strong></div>
+                <div class="info">🔌 Port: <strong>${port || 'default'}</strong></div>
+                <div class="info">🔗 Full URL: <strong>${fullURL}</strong></div>
+                <div class="${isProduction ? 'warning' : 'success'}">
+                    🏭 Environment: <strong>${isProduction ? 'PRODUCTION' : 'DEVELOPMENT'}</strong>
+                </div>
+                ${isVercel ? '<div class="info">☁️ Platform: <strong>Vercel</strong></div>' : ''}
+                ${isNetlify ? '<div class="info">☁️ Platform: <strong>Netlify</strong></div>' : ''}
+            `;
+            
+            const actions = document.getElementById('required-actions');
+            if (isProduction) {
+                actions.innerHTML = `
+                    <div class="error">🚨 CRITICAL: Add '${domain}' to Firebase authorized domains</div>
+                    <div class="warning">⚠️ This domain is NOT authorized in Firebase</div>
+                    <div class="info">ℹ️ All Firestore operations are blocked until fixed</div>
+                `;
+            } else {
+                actions.innerHTML = `
+                    <div class="success">✅ Development environment detected</div>
+                    <div class="info">ℹ️ Make sure 'localhost' is in Firebase authorized domains</div>
+                `;
+            }
+            
+            const steps = document.getElementById('step-by-step');
+            steps.innerHTML = `
+                <div class="info">1. Go to Firebase Console (click button above)</div>
+                <div class="info">2. Navigate to: Authentication → Settings → Authorized domains</div>
+                <div class="warning">3. Click "Add domain" and enter: <strong>${domain}</strong></div>
+                <div class="info">4. Click "Save" and wait 1-2 minutes</div>
+                <div class="success">5. Refresh this page - CORS errors should be gone!</div>
+                <br>
+                <div class="error">🎯 EXACT DOMAIN TO ADD: <strong>${domain}</strong></div>
+                <div class="warning">⚠️ Do NOT include https:// or any paths</div>
+            `;
+        }
+        
+        function openFirebaseConsole() {
+            window.open('https://console.firebase.google.com/project/nemory-a2543/authentication/settings', '_blank');
+        }
+        
+        function openVercelDashboard() {
+            window.open('https://vercel.com/dashboard', '_blank');
+        }
+        
+        function copyDomain() {
+            const domain = window.location.hostname;
+            navigator.clipboard.writeText(domain).then(() => {
+                alert(`Domain copied: ${domain}`);
+            });
+        }
+        
+        // Run analysis on page load
+        analyzeEnvironment();
+        
+        // Check for CORS errors
+        window.addEventListener('error', (event) => {
+            if (event.message && event.message.includes('CORS')) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'box error';
+                errorDiv.innerHTML = `
+                    <h2>🚨 CORS ERROR DETECTED</h2>
+                    <pre>${event.message}</pre>
+                    <div class="warning">This confirms the domain authorization issue!</div>
+                `;
+                document.body.appendChild(errorDiv);
+            }
+        });
+        
+        console.log('🔍 Firebase CORS Checker loaded');
+        console.log('📋 Current domain:', window.location.hostname);
+        console.log('🎯 Add this domain to Firebase authorized domains');
+    </script>
+</body>
+</html>

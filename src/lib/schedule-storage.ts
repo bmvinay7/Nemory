@@ -1,6 +1,7 @@
 import { doc, setDoc, getDoc, collection, query, where, orderBy, limit, getDocs, deleteDoc, Timestamp, addDoc } from 'firebase/firestore';
 import { db, handleFirestoreOperation } from './firebase';
 import { ScheduleConfig, ScheduleExecution, ScheduleStats } from './schedule-types';
+import RobustErrorHandler from './robust-error-handler';
 
 export class ScheduleStorageService {
   private readonly COLLECTION_SCHEDULES = 'schedules';
@@ -210,16 +211,29 @@ export class ScheduleStorageService {
     try {
       console.log('ScheduleStorage: Logging execution:', execution.id);
 
+      // Validate and sanitize execution data
+      const validation = RobustErrorHandler.validateExecutionData(execution);
+      if (!validation.isValid) {
+        throw new Error(`Invalid execution data: ${validation.errors.join(', ')}`);
+      }
+
+      // Use robust cleaning for Firestore
+      const cleanedExecution = RobustErrorHandler.cleanForFirestore(validation.sanitized);
+
       // Save to Firestore
       const docRef = doc(db, this.COLLECTION_EXECUTIONS, execution.id);
       const firestoreExecution = {
-        ...execution,
+        ...cleanedExecution,
         executedAt: Timestamp.fromDate(new Date(execution.executedAt))
       };
 
-      await handleFirestoreOperation(
-        () => setDoc(docRef, firestoreExecution),
-        'logExecution'
+      await RobustErrorHandler.withRetry(
+        () => handleFirestoreOperation(
+          () => setDoc(docRef, firestoreExecution),
+          'logExecution'
+        ),
+        3,
+        1000
       );
 
       // Update schedule's last run time and run count ONLY if execution was successful
@@ -539,6 +553,35 @@ export class ScheduleStorageService {
     for (const [key, value] of Object.entries(schedule)) {
       if (value !== undefined) {
         cleaned[key] = value;
+      }
+    }
+    
+    return cleaned;
+  }
+
+  private cleanExecutionForFirestore(execution: ScheduleExecution): any {
+    // Deep clean execution data to remove undefined values
+    const cleaned: any = {};
+    
+    for (const [key, value] of Object.entries(execution)) {
+      if (value !== undefined) {
+        if (key === 'deliveryResults' && typeof value === 'object' && value !== null) {
+          // Clean delivery results object
+          cleaned[key] = {};
+          for (const [deliveryKey, deliveryValue] of Object.entries(value)) {
+            if (deliveryValue !== undefined && typeof deliveryValue === 'object' && deliveryValue !== null) {
+              // Clean individual delivery result
+              cleaned[key][deliveryKey] = {};
+              for (const [resultKey, resultValue] of Object.entries(deliveryValue)) {
+                if (resultValue !== undefined) {
+                  cleaned[key][deliveryKey][resultKey] = resultValue;
+                }
+              }
+            }
+          }
+        } else {
+          cleaned[key] = value;
+        }
       }
     }
     
