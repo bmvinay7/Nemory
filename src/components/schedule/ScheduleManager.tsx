@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Clock, Calendar, Settings, Play, Pause, Trash2, BarChart3, Zap, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -110,7 +110,7 @@ const ScheduleManager: React.FC = () => {
     }
   };
 
-  const loadSchedules = async () => {
+  const loadSchedules = useCallback(async () => {
     if (!currentUser) return;
 
     try {
@@ -143,9 +143,9 @@ const ScheduleManager: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser]);
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     if (!currentUser) return;
 
     try {
@@ -154,7 +154,7 @@ const ScheduleManager: React.FC = () => {
     } catch (error) {
       console.error('Error loading schedule stats:', error);
     }
-  };
+  }, [currentUser]);
 
   const handleToggleSchedule = async (schedule: ScheduleConfig) => {
     if (!currentUser) return;
