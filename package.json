@@ -18,6 +18,7 @@
     "test:comprehensive": "node scripts/comprehensive-test.js",
     "fix:cors": "node fix-cors.js",
     "test:robustness": "node test-robustness.js",
+    "security:test": "node security-test.js",
     "lint": "eslint .",
     "preview": "vite preview",
     "test:notion": "node test-notion-serverless.js",

@@ -2,22 +2,53 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Helper functions for security
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isValidUserId(userId) {
+      return userId is string && userId.size() == 28 && userId.matches('^[a-zA-Z0-9]+$');
+    }
+    
+    function isValidData() {
+      return request.resource.data.keys().hasAll(['userId']) && 
+             isValidUserId(request.resource.data.userId);
+    }
+    
+    // Rate limiting helper (basic)
+    function isWithinRateLimit() {
+      return request.time > resource.data.lastUpdated + duration.value(1, 's');
+    }
+
     // Allow authenticated users to read/write their own notion integration data
     match /notion_integrations/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if isOwner(userId) && isValidUserId(userId);
+      allow create: if isAuthenticated() && isValidUserId(userId) && 
+                       request.auth.uid == userId && isValidData();
     }
     
     // Allow authenticated users to read/write their own user profile data
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if isOwner(userId) && isValidUserId(userId);
+      allow create: if isAuthenticated() && isValidUserId(userId) && 
+                       request.auth.uid == userId && isValidData();
     }
     
     // Allow authenticated users to read/write their own AI summaries
     match /summaries/{summaryId} {
-      allow read, write: if request.auth != null && 
+      allow read, write: if isAuthenticated() && 
         (request.auth.uid == resource.data.userId || 
-         request.auth.uid == request.resource.data.userId);
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+         request.auth.uid == request.resource.data.userId) &&
+        isValidUserId(resource.data.userId);
+      allow create: if isAuthenticated() && 
+                       request.auth.uid == request.resource.data.userId &&
+                       isValidUserId(request.resource.data.userId) &&
+                       isValidData();
     }
     
     // Allow authenticated users to read/write their own preferences
