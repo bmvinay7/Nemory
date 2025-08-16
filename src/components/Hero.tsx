@@ -68,8 +68,7 @@ const Hero = () => {
           >
             <span style={{ 
               color: "#F8F8FF",
-              WebkitTextStroke: "0.05px #FF6B35",
-              textStroke: "0.05px #FF6B35"
+              textShadow: "0 0 0.5px #FF6B35, 0 0 0.5px #FF6B35"
             }}>
               Nemory: Your Notes,
             </span><br />
