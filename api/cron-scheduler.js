@@ -240,7 +240,19 @@ async function generateAISummary(schedule, notionAccessToken) {
   }
 
   // Generate AI summary
-  const aiSummary = await generateGeminiSummary(allContent, schedule.summaryConfig);
+  let aiSummary;
+  try {
+    aiSummary = await generateGeminiSummary(allContent, schedule.summaryConfig);
+  } catch (aiError) {
+    console.log(`⚠️ AI summary failed, using fallback: ${aiError.message}`);
+    // Fallback summary if AI fails
+    aiSummary = `📋 **Daily Summary** (${new Date().toLocaleDateString()})\n\n` +
+                `Found ${recentPages.length} recent pages in your Notion workspace:\n\n` +
+                recentPages.slice(0, 5).map(page => 
+                  `• ${page.properties?.title?.title?.[0]?.plain_text || 'Untitled'}`
+                ).join('\n') +
+                `\n\n*AI summarization temporarily unavailable. This is a basic content overview.*`;
+  }
 
   return {
     summary: aiSummary,
@@ -303,27 +315,56 @@ async function generateGeminiSummary(content, summaryConfig) {
 
   console.log(`🤖 Calling Gemini API with key: ${apiKey ? 'Present' : 'Missing'}`);
   
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      contents: [{
-        parts: [{ text: prompt }]
-      }]
-    })
-  });
-
-  console.log(`🤖 Gemini API response status: ${response.status}`);
+  // Try gemini-pro first, then fallback to gemini-1.5-flash
+  let response;
+  let modelUsed = '';
+  
+  try {
+    modelUsed = 'gemini-pro';
+    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{ text: prompt }]
+        }]
+      })
+    });
+    
+    console.log(`🤖 Gemini API (${modelUsed}) response status: ${response.status}`);
+    
+    if (!response.ok && modelUsed === 'gemini-pro') {
+      console.log(`⚠️ gemini-pro failed, trying gemini-1.5-flash...`);
+      modelUsed = 'gemini-1.5-flash';
+      response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{ text: prompt }]
+          }]
+        })
+      });
+      console.log(`🤖 Gemini API (${modelUsed}) response status: ${response.status}`);
+    }
+    
+  } catch (fetchError) {
+    console.log(`❌ Fetch error: ${fetchError.message}`);
+    throw new Error(`Gemini API fetch error: ${fetchError.message}`);
+  }
   
   if (!response.ok) {
     const errorText = await response.text();
-    console.log(`❌ Gemini API error response: ${errorText}`);
-    throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+    console.log(`❌ Gemini API (${modelUsed}) error response: ${errorText}`);
+    throw new Error(`Gemini API (${modelUsed}) error: ${response.status} - ${errorText}`);
   }
 
   const data = await response.json();
+  console.log(`✅ Gemini API (${modelUsed}) success`);
   return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Failed to generate summary';
 }
 
