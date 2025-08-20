@@ -212,10 +212,19 @@ async function generateAISummary(schedule, notionAccessToken) {
   });
 
   if (recentPages.length === 0) {
-    return {
-      summary: "No recent content found for summarization.",
-      contentCount: 0
-    };
+    // Test Gemini API with simple content when no pages found
+    try {
+      const testSummary = await generateGeminiSummary("Test content: Hello world", schedule.summaryConfig);
+      return {
+        summary: `📋 **No Recent Content Found**\n\nNo new pages were found in your Notion workspace for the specified time period.\n\n*AI Test: ${testSummary}*`,
+        contentCount: 0
+      };
+    } catch (error) {
+      return {
+        summary: `📋 **No Recent Content Found**\n\nNo new pages were found in your Notion workspace for the specified time period.\n\n*AI service temporarily unavailable.*`,
+        contentCount: 0
+      };
+    }
   }
 
   // Get content from pages
@@ -309,9 +318,17 @@ async function generateGeminiSummary(content, summaryConfig) {
   const length = summaryConfig?.length || 'medium';
   const focusAreas = summaryConfig?.focusAreas || ['tasks', 'decisions'];
 
+  // Limit content length to avoid API limits
+  const maxContentLength = 8000;
+  const truncatedContent = content.length > maxContentLength ? 
+    content.substring(0, maxContentLength) + '\n\n[Content truncated...]' : 
+    content;
+    
   let prompt = `Please create a ${style} summary of the following content. `;
   prompt += `Make it ${length} length and focus on: ${focusAreas.join(', ')}.\n\n`;
-  prompt += `Content:\n${content}`;
+  prompt += `Content:\n${truncatedContent}`;
+  
+  console.log(`📝 Prompt length: ${prompt.length} characters`);
 
   console.log(`🤖 Calling Gemini API with key: ${apiKey ? 'Present' : 'Missing'}`);
   
