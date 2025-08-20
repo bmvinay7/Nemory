@@ -4,6 +4,8 @@
 
 The Nemory scheduling system allows you to automate AI summary generation and delivery. Set up custom schedules to receive AI-powered summaries of your Notion content at regular intervals via Telegram or email.
 
+**🚀 New: Server-Side Scheduling** - Schedules now run on Vercel cron jobs, meaning they work 24/7 even when your browser is closed! No more need to keep the app open for schedules to trigger.
+
 ## Features
 
 ### ⏰ Flexible Scheduling
