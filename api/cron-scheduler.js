@@ -125,22 +125,36 @@ async function executeSchedule(schedule) {
 
 
 
+    console.log(`📊 Summary generated successfully, content count: ${summaryResult.contentCount}`);
+    
     // Deliver via configured channels
     let deliverySuccess = false;
+
+    console.log(`📱 Checking delivery methods:`, JSON.stringify(schedule.deliveryMethods, null, 2));
 
     // Telegram delivery
     if (schedule.deliveryMethods?.telegram?.enabled && schedule.deliveryMethods.telegram.chatId) {
       try {
+        console.log(`📱 Sending Telegram message to chat: ${schedule.deliveryMethods.telegram.chatId}`);
         await sendTelegramMessage(schedule.deliveryMethods.telegram.chatId, summaryResult.summary);
         execution.deliveryResults.telegram = { status: 'success', timestamp: new Date().toISOString() };
         deliverySuccess = true;
+        console.log(`✅ Telegram delivery successful`);
       } catch (telegramError) {
+        console.log(`❌ Telegram delivery failed: ${telegramError.message}`);
         execution.deliveryResults.telegram = { 
           status: 'failed', 
           error: telegramError.message,
           timestamp: new Date().toISOString()
         };
       }
+    } else {
+      console.log(`⚠️ Telegram delivery not configured or disabled`);
+      execution.deliveryResults.telegram = { 
+        status: 'skipped', 
+        reason: 'Not configured or disabled',
+        timestamp: new Date().toISOString()
+      };
     }
 
     // Email delivery (placeholder for future implementation)
@@ -152,10 +166,18 @@ async function executeSchedule(schedule) {
       };
     }
 
-    execution.status = deliverySuccess ? 'success' : 'failed';
+    if (deliverySuccess) {
+      execution.status = 'success';
+      console.log(`🎉 Schedule execution completed successfully`);
+    } else {
+      execution.status = 'failed';
+      execution.error = 'No delivery methods succeeded';
+      console.log(`❌ Schedule execution failed: No delivery methods succeeded`);
+    }
     
   } catch (error) {
-    console.error('❌ Schedule execution failed:', error);
+    console.error('❌ Schedule execution failed with exception:', error);
+    console.error('❌ Error stack:', error.stack);
     execution.status = 'failed';
     execution.error = error.message;
   }
