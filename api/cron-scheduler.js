@@ -27,26 +27,20 @@ if (!getApps().length) {
 const db = getFirestore(app);
 
 /**
- * Check if a schedule is due for execution
+ * Check if a schedule is due for execution (Free tier: runs once daily at 9 AM UTC)
+ * We'll execute all schedules that should have run in the last 24 hours
  */
 function isScheduleDue(schedule) {
   const now = new Date();
-  const currentHour = now.getHours();
-  const currentMinute = now.getMinutes();
   const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
   const currentDate = now.getDate();
 
-  // Parse schedule time
-  const [scheduleHour, scheduleMinute] = schedule.time.split(':').map(Number);
-
-  // Check if current time matches schedule time (within 1 minute window)
-  const timeMatches = currentHour === scheduleHour && 
-                     Math.abs(currentMinute - scheduleMinute) <= 1;
-
-  if (!timeMatches) return false;
-
+  // Since we can only run once per day, we need to check if this schedule
+  // should have executed in the last 24 hours
+  
   switch (schedule.frequency) {
     case 'daily':
+      // Daily schedules should always run when the cron job executes
       return true;
 
     case 'weekly':
@@ -339,7 +333,8 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  console.log('🕐 Cron job triggered at:', new Date().toISOString());
+  console.log('🕐 Daily cron job triggered at:', new Date().toISOString());
+  console.log('📋 Vercel Free Tier: Running daily batch execution of all due schedules');
 
   try {
     // Get all active schedules
