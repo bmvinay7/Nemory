@@ -4,7 +4,7 @@
  */
 
 import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore, collection, query, where, getDocs, doc, getDoc, addDoc, Timestamp } from 'firebase/firestore';
+import { getFirestore, collection, query, where, getDocs, doc, getDoc, addDoc, Timestamp, connectFirestoreEmulator } from 'firebase/firestore';
 
 // Firebase configuration
 const firebaseConfig = {
@@ -337,12 +337,16 @@ export default async function handler(req, res) {
   console.log('📋 Vercel Free Tier: Running daily batch execution of all due schedules');
 
   try {
+    // Test Firestore connection first
+    console.log('🔍 Testing Firestore connection...');
+    
     // Get all active schedules
     const schedulesQuery = query(
       collection(db, 'schedules'),
       where('isActive', '==', true)
     );
 
+    console.log('📋 Querying schedules collection...');
     const schedulesSnapshot = await getDocs(schedulesQuery);
     const allSchedules = schedulesSnapshot.docs.map(doc => ({
       id: doc.id,

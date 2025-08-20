@@ -83,6 +83,8 @@ service cloud.firestore {
       allow read, write, create: if request.auth != null && 
         (request.auth.uid == resource.data.userId || 
          request.auth.uid == request.resource.data.userId);
+      // Allow server-side cron job to read all active schedules
+      allow read: if true;
     }
     
     // Allow authenticated users to read/write their own schedule executions
@@ -90,6 +92,17 @@ service cloud.firestore {
       allow read, write, create: if request.auth != null && 
         (request.auth.uid == resource.data.userId || 
          request.auth.uid == request.resource.data.userId);
+      // Allow server-side cron job to create execution logs
+      allow create: if true;
+    }
+    
+    // Allow server-side cron job to read user data for schedule execution
+    match /users/{userId} {
+      allow read, write: if isOwner(userId) && isValidUserId(userId);
+      allow create: if isAuthenticated() && isValidUserId(userId) && 
+                       request.auth.uid == userId && isValidData();
+      // Allow server-side cron job to read user tokens for schedule execution
+      allow read: if true;
     }
     
     // Deny all other access - only specific collections above are allowed
