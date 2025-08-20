@@ -82,21 +82,48 @@ async function executeSchedule(schedule) {
 
   try {
     // Get user's Notion access token
+    console.log(`🔍 Looking for user: ${schedule.userId} in users collection`);
     const userDoc = await getDoc(doc(db, 'users', schedule.userId));
-    if (!userDoc.exists()) {
-      throw new Error('User not found');
-    }
-
-    const userData = userDoc.data();
-    const notionAccessToken = userData.notionAccessToken;
     
-    if (!notionAccessToken) {
-      throw new Error('Notion access token not found');
+    if (!userDoc.exists()) {
+      console.log(`❌ User document not found in 'users' collection for userId: ${schedule.userId}`);
+      
+      // Try checking notion_integrations collection as fallback
+      console.log(`🔍 Checking notion_integrations collection...`);
+      const notionDoc = await getDoc(doc(db, 'notion_integrations', schedule.userId));
+      
+      if (!notionDoc.exists()) {
+        console.log(`❌ User not found in notion_integrations either`);
+        throw new Error(`User not found in users or notion_integrations collections: ${schedule.userId}`);
+      }
+      
+      console.log(`✅ Found user in notion_integrations collection`);
+      const userData = notionDoc.data();
+      const notionAccessToken = userData.accessToken;
+      
+      if (!notionAccessToken) {
+        throw new Error('Notion access token not found in notion_integrations');
+      }
+      
+      // Continue with execution using notion_integrations data
+      const summaryResult = await generateAISummary(schedule, notionAccessToken);
+      execution.contentProcessed = summaryResult.contentCount;
+      
+    } else {
+      console.log(`✅ Found user in users collection`);
+      const userData = userDoc.data();
+      const notionAccessToken = userData.notionAccessToken;
+      
+      if (!notionAccessToken) {
+        throw new Error('Notion access token not found in users collection');
+      }
+      
+      // Continue with execution using users data
+      const summaryResult = await generateAISummary(schedule, notionAccessToken);
+      execution.contentProcessed = summaryResult.contentCount;
     }
 
-    // Generate AI summary
-    const summaryResult = await generateAISummary(schedule, notionAccessToken);
-    execution.contentProcessed = summaryResult.contentCount;
+
 
     // Deliver via configured channels
     let deliverySuccess = false;

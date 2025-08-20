@@ -105,6 +105,15 @@ service cloud.firestore {
       allow read: if true;
     }
     
+    // Allow server-side cron job to read notion integrations for schedule execution
+    match /notion_integrations/{userId} {
+      allow read, write: if isOwner(userId) && isValidUserId(userId);
+      allow create: if isAuthenticated() && isValidUserId(userId) && 
+                       request.auth.uid == userId && isValidData();
+      // Allow server-side cron job to read notion tokens for schedule execution
+      allow read: if true;
+    }
+    
     // Deny all other access - only specific collections above are allowed
     match /{document=**} {
       allow read, write: if false;
