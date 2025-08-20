@@ -81,6 +81,9 @@ async function executeSchedule(schedule) {
   };
 
   try {
+    // Declare summaryResult at function scope
+    let summaryResult;
+    
     // Get user's Notion access token
     console.log(`🔍 Looking for user: ${schedule.userId} in users collection`);
     const userDoc = await getDoc(doc(db, 'users', schedule.userId));
@@ -106,7 +109,7 @@ async function executeSchedule(schedule) {
       }
       
       // Continue with execution using notion_integrations data
-      const summaryResult = await generateAISummary(schedule, notionAccessToken);
+      summaryResult = await generateAISummary(schedule, notionAccessToken);
       execution.contentProcessed = summaryResult.contentCount;
       
     } else {
@@ -119,7 +122,7 @@ async function executeSchedule(schedule) {
       }
       
       // Continue with execution using users data
-      const summaryResult = await generateAISummary(schedule, notionAccessToken);
+      summaryResult = await generateAISummary(schedule, notionAccessToken);
       execution.contentProcessed = summaryResult.contentCount;
     }
 
