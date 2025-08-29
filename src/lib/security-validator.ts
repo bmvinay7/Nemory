@@ -15,7 +15,7 @@ export class SecurityValidator {
     return input
       .trim()
       .substring(0, maxLength)
-      .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
+      .replace(/[\u0000-\u001F\u007F]/g, '') // Remove control characters
       .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove script tags
       .replace(/javascript:/gi, '') // Remove javascript: URLs
       .replace(/on\w+\s*=/gi, ''); // Remove event handlers

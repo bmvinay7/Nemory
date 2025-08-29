@@ -68,7 +68,7 @@ export class RobustErrorHandler {
       
       // Remove control characters and limit length
       let sanitized = text
-        .replace(/[\x00-\x1F\x7F]/g, '')
+        .replace(/[\u0000-\u001F\u007F]/g, '')
         .substring(0, 4000);
       
       // Normalize line endings
@@ -150,7 +150,7 @@ export class RobustErrorHandler {
     } = options;
 
     let lastError: Error;
-    let startTime = Date.now();
+    const startTime = Date.now();
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {

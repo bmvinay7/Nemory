@@ -610,7 +610,7 @@ export class NotionOAuthService {
     };
     
     let totalTextLength = 0;
-    let blockLengths: number[] = [];
+    const blockLengths: number[] = [];
     
     // Analyze each block
     blocks.forEach((block, index) => {
