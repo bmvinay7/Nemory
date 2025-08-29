@@ -31,7 +31,9 @@
     "firebase:deploy:hosting": "firebase deploy --only hosting",
     "debug:auth": "node debug-auth.js",
     "debug:ai": "node debug-ai-summary.js",
-    "debug:firestore": "node debug-firestore.js"
+    "debug:firestore": "node debug-firestore.js",
+    "test:cron": "node test-cron-functionality.js",
+    "test:cron:status": "curl -X GET http://localhost:3000/api/cron-status"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
@@ -110,7 +112,7 @@
     "nodemon": "^3.0.1",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.11",
-    "typescript": "^5.5.3",
+    "typescript": "^5.9.2",
     "typescript-eslint": "^8.0.1",
     "vite": "^5.4.1"
   }

@@ -102,7 +102,7 @@ export class ScheduleExecutorService {
           });
 
           // Clean delivery result to avoid undefined values in Firestore
-          const telegramDeliveryResult: any = {
+          const telegramDeliveryResult: Record<string, unknown> = {
             success: telegramResult.success,
           };
           
@@ -114,7 +114,10 @@ export class ScheduleExecutorService {
             telegramDeliveryResult.error = telegramResult.error;
           }
           
-          execution.deliveryResults.telegram = telegramDeliveryResult;
+          execution.deliveryResults.telegram = {
+            success: Boolean(telegramDeliveryResult.success),
+            ...telegramDeliveryResult
+          };
 
           if (telegramResult.success) {
             deliverySuccess = true;

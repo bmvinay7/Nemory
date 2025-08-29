@@ -16,8 +16,8 @@ export class FirestoreIndexChecker {
 
       await getDocs(q);
       return true;
-    } catch (error: any) {
-      if (error.code === 'failed-precondition') {
+    } catch (error: unknown) {
+      if ((error as { code?: string }).code === 'failed-precondition') {
         return false;
       }
       // Other errors might be network issues, so we assume index is ready
@@ -39,8 +39,8 @@ export class FirestoreIndexChecker {
 
       await getDocs(q);
       return true;
-    } catch (error: any) {
-      if (error.code === 'failed-precondition') {
+    } catch (error: unknown) {
+      if ((error as { code?: string }).code === 'failed-precondition') {
         return false;
       }
       return true;

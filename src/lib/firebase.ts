@@ -162,24 +162,24 @@ export const handleFirestoreOperation = async <T>(
 ): Promise<T> => {
   try {
     return await operation();
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(`🔥 Firestore ${operationName} failed:`, {
-      code: error.code,
-      message: error.message,
+      code: (error as { code?: string }).code,
+      message: (error as Error).message,
       operationName,
       timestamp: new Date().toISOString()
     });
     
     // Provide specific error context
-    if (error.code === 'firestore/permission-denied') {
+    if ((error as any).code === 'firestore/permission-denied') {
       console.error(`   💡 Permission denied for ${operationName} - check Firestore rules`);
-    } else if (error.code === 'firestore/failed-precondition') {
+    } else if ((error as any).code === 'firestore/failed-precondition') {
       console.error(`   💡 Failed precondition for ${operationName} - likely missing index`);
       console.error(`   💡 Run: firebase deploy --only firestore:indexes`);
-    } else if (error.message && error.message.includes('400')) {
+    } else if ((error as Error).message && (error as Error).message.includes('400')) {
       console.error(`   💡 HTTP 400 error for ${operationName} - malformed request`);
       console.error(`   💡 Check query parameters and field types`);
-    } else if (error.message && (error.message.includes('CORS') || error.message.includes('access control'))) {
+    } else if ((error as Error).message && ((error as Error).message.includes('CORS') || (error as Error).message.includes('access control'))) {
       console.error(`   💡 CORS error for ${operationName} - domain authorization issue`);
       console.error(`   💡 Add your domain to Firebase Console → Authentication → Authorized domains`);
       console.error(`   💡 For localhost: Add 'localhost' to authorized domains`);
@@ -187,7 +187,7 @@ export const handleFirestoreOperation = async <T>(
       // Show user-friendly error
       if (typeof window !== 'undefined') {
         const event = new CustomEvent('firebaseCORSError', {
-          detail: { operationName, error: error.message }
+          detail: { operationName, error: (error as Error).message }
         });
         window.dispatchEvent(event);
       }

@@ -121,15 +121,15 @@ const NotionCallback: React.FC = () => {
 
           // Redirect to dashboard after success
           setTimeout(() => navigate('/dashboard'), 2000);
-        } catch (callbackError: any) {
+        } catch (callbackError: unknown) {
           console.error('NotionCallback: Detailed error:', {
-            message: callbackError.message,
-            stack: callbackError.stack,
-            name: callbackError.name
+            message: (callbackError as Error).message,
+            stack: (callbackError as Error).stack,
+            name: (callbackError as Error).name
           });
           
           // Handle specific error types
-          if (callbackError.message?.includes('Invalid state parameter')) {
+          if ((callbackError as Error).message?.includes('Invalid state parameter')) {
             console.log('NotionCallback: State validation failed, checking if already connected...');
             setMessage('Verifying connection status...');
             
@@ -141,21 +141,21 @@ const NotionCallback: React.FC = () => {
             return;
           }
           
-          if (callbackError.message?.includes('Authorization code expired')) {
+          if ((callbackError as Error).message?.includes('Authorization code expired')) {
             setStatus('error');
             setMessage('The authorization code has expired. Please try connecting again.');
             setTimeout(() => navigate('/dashboard'), 3000);
             return;
           }
           
-          if (callbackError.message?.includes('Network error') || callbackError.message?.includes('fetch')) {
+          if ((callbackError as Error).message?.includes('Network error') || (callbackError as Error).message?.includes('fetch')) {
             setStatus('error');
             setMessage('Connection failed due to network issues. Please check your internet connection and try again.');
             setTimeout(() => navigate('/dashboard'), 4000);
             return;
           }
           
-          if (callbackError.message?.includes('CORS')) {
+          if ((callbackError as Error).message?.includes('CORS')) {
             setStatus('error');
             setMessage('Connection blocked by browser security. This issue has been reported to our team.');
             setTimeout(() => navigate('/dashboard'), 4000);
@@ -166,14 +166,14 @@ const NotionCallback: React.FC = () => {
           throw callbackError;
         }
 
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Notion OAuth callback error:', error);
         setStatus('error');
-        setMessage(error.message || 'Failed to connect Notion workspace.');
+        setMessage((error as Error).message || 'Failed to connect Notion workspace.');
         
         toast({
           title: "Connection Failed",
-          description: error.message || "Unable to connect your Notion workspace.",
+          description: (error as Error).message || "Unable to connect your Notion workspace.",
           variant: "destructive"
         });
 

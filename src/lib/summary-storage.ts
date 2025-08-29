@@ -86,9 +86,9 @@ export class SummaryStorageService {
             'saveSummary'
           );
           console.log('SummaryStorage: Summary saved to Firestore with Timestamp');
-        } catch (firestoreError: any) {
-          console.warn('SummaryStorage: Firestore save failed:', firestoreError.code);
-          if (firestoreError.code === 'permission-denied') {
+        } catch (firestoreError: unknown) {
+          console.warn('SummaryStorage: Firestore save failed:', (firestoreError as { code?: string }).code);
+          if ((firestoreError as any).code === 'permission-denied') {
             console.warn('SummaryStorage: Permission denied - check Firestore rules');
           }
         }
@@ -124,8 +124,8 @@ export class SummaryStorageService {
               return summary;
             }
           }
-        } catch (firestoreError: any) {
-          console.warn('SummaryStorage: Firestore fetch failed:', firestoreError.code);
+        } catch (firestoreError: unknown) {
+          console.warn('SummaryStorage: Firestore fetch failed:', (firestoreError as { code?: string }).code);
         }
       }
 
@@ -185,17 +185,17 @@ export class SummaryStorageService {
           const summaries: SummaryResult[] = [];
 
           querySnapshot.forEach((doc) => {
-            const data = doc.data() as any;
+            const data = doc.data() as Record<string, unknown>;
             if (!data.isDeleted) {
               // Convert Firestore Timestamps back to ISO strings for consistency
               const summary: SummaryResult = {
-                ...data,
+                ...(data as unknown as SummaryResult),
                 createdAt: data.createdAt instanceof Timestamp
                   ? data.createdAt.toDate().toISOString()
-                  : data.createdAt,
+                  : (data.createdAt as string),
                 deletedAt: data.deletedAt instanceof Timestamp
                   ? data.deletedAt.toDate().toISOString()
-                  : data.deletedAt
+                  : (data.deletedAt as string)
               };
               summaries.push(summary);
             }
@@ -205,16 +205,16 @@ export class SummaryStorageService {
             console.log(`SummaryStorage: Loaded ${summaries.length} summaries from Firestore`);
             return summaries;
           }
-        } catch (firestoreError: any) {
+        } catch (firestoreError: unknown) {
           console.error('SummaryStorage: Firestore query failed:', {
-            code: firestoreError.code,
-            message: firestoreError.message,
+            code: (firestoreError as { code?: string }).code,
+            message: (firestoreError as Error).message,
             userId: userId,
             isFirestoreReady: isFirestoreReady()
           });
 
           // If it's a missing index error, provide helpful information
-          if (firestoreError.code === 'failed-precondition' && firestoreError.message.includes('index')) {
+          if ((firestoreError as any).code === 'failed-precondition' && (firestoreError as Error).message.includes('index')) {
             console.error('SummaryStorage: Missing Firestore index! Run: firebase deploy --only firestore:indexes');
           }
         }
@@ -282,8 +282,8 @@ export class SummaryStorageService {
           const docRef = doc(db, 'summaries', summaryId);
           await setDoc(docRef, deletedSummary);
           console.log('SummaryStorage: Summary moved to recycle bin in Firestore');
-        } catch (firestoreError: any) {
-          console.warn('SummaryStorage: Firestore recycle bin update failed:', firestoreError.code);
+        } catch (firestoreError: unknown) {
+          console.warn('SummaryStorage: Firestore recycle bin update failed:', (firestoreError as { code?: string }).code);
         }
       }
 
@@ -325,8 +325,8 @@ export class SummaryStorageService {
             console.log(`SummaryStorage: Loaded ${summaries.length} deleted summaries from Firestore`);
             return summaries;
           }
-        } catch (firestoreError: any) {
-          console.warn('SummaryStorage: Firestore deleted summaries query failed:', firestoreError.code);
+        } catch (firestoreError: unknown) {
+          console.warn('SummaryStorage: Firestore deleted summaries query failed:', (firestoreError as { code?: string }).code);
         }
       }
 
@@ -396,8 +396,8 @@ export class SummaryStorageService {
           const docRef = doc(db, 'summaries', summaryId);
           await setDoc(docRef, restoredSummary);
           console.log('SummaryStorage: Summary restored in Firestore');
-        } catch (firestoreError: any) {
-          console.warn('SummaryStorage: Firestore restore failed:', firestoreError.code);
+        } catch (firestoreError: unknown) {
+          console.warn('SummaryStorage: Firestore restore failed:', (firestoreError as { code?: string }).code);
         }
       }
 
@@ -427,8 +427,8 @@ export class SummaryStorageService {
           const docRef = doc(db, 'summaries', summaryId);
           await deleteDoc(docRef);
           console.log('SummaryStorage: Summary permanently deleted from Firestore');
-        } catch (firestoreError: any) {
-          console.warn('SummaryStorage: Firestore permanent delete failed:', firestoreError.code);
+        } catch (firestoreError: unknown) {
+          console.warn('SummaryStorage: Firestore permanent delete failed:', (firestoreError as { code?: string }).code);
         }
       }
 
@@ -504,8 +504,8 @@ export class SummaryStorageService {
           const docRef = doc(db, 'summary_preferences', preferences.userId);
           await setDoc(docRef, preferences);
           console.log('SummaryStorage: Preferences saved to Firestore');
-        } catch (firestoreError: any) {
-          console.warn('SummaryStorage: Firestore preferences save failed:', firestoreError.code);
+        } catch (firestoreError: unknown) {
+          console.warn('SummaryStorage: Firestore preferences save failed:', (firestoreError as { code?: string }).code);
         }
       }
 
@@ -533,8 +533,8 @@ export class SummaryStorageService {
             console.log('SummaryStorage: Preferences loaded from Firestore');
             return preferences;
           }
-        } catch (firestoreError: any) {
-          console.warn('SummaryStorage: Firestore preferences fetch failed:', firestoreError.code);
+        } catch (firestoreError: unknown) {
+          console.warn('SummaryStorage: Firestore preferences fetch failed:', (firestoreError as { code?: string }).code);
         }
       }
 
@@ -578,8 +578,8 @@ export class SummaryStorageService {
           const docRef = doc(db, 'delivery_logs', deliveryLog.id);
           await setDoc(docRef, deliveryLog);
           console.log('SummaryStorage: Delivery log saved to Firestore');
-        } catch (firestoreError: any) {
-          console.warn('SummaryStorage: Firestore delivery log save failed:', firestoreError.code);
+        } catch (firestoreError: unknown) {
+          console.warn('SummaryStorage: Firestore delivery log save failed:', (firestoreError as { code?: string }).code);
         }
       }
 
@@ -613,8 +613,8 @@ export class SummaryStorageService {
           if (logs.length > 0) {
             return logs;
           }
-        } catch (firestoreError: any) {
-          console.warn('SummaryStorage: Firestore delivery logs query failed:', firestoreError.code);
+        } catch (firestoreError: unknown) {
+          console.warn('SummaryStorage: Firestore delivery logs query failed:', (firestoreError as { code?: string }).code);
         }
       }
 

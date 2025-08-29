@@ -48,20 +48,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await updateProfile(user, { displayName });
   };
 
-  const login = (email: string, password: string) => {
-    return signInWithEmailAndPassword(auth, email, password);
+  const login = async (email: string, password: string) => {
+    await signInWithEmailAndPassword(auth, email, password);
   };
 
   const logout = () => {
     return signOut(auth);
   };
 
-  const loginWithGoogle = async () => {
+  const loginWithGoogle = async (): Promise<void> => {
     const provider = new GoogleAuthProvider();
     
     try {
-      const result = await signInWithPopup(auth, provider);
-      return result;
+      await signInWithPopup(auth, provider);
     } catch (error: any) {
       // Handle account linking scenarios
       if (error.code === 'auth/account-exists-with-different-credential') {

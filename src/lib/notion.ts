@@ -325,7 +325,7 @@ export class NotionOAuthService {
       }
 
       const searchData = await searchResponse.json();
-      const recentPages = searchData.results.filter((page: any) => {
+      let recentPages = searchData.results.filter((page: any) => {
         const lastEdited = new Date(page.last_edited_time);
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - lastDays);
@@ -333,6 +333,12 @@ export class NotionOAuthService {
       });
 
       console.log(`Found ${recentPages.length} recent pages to process`);
+
+      // If no recent pages, use all available pages (more lenient)
+      if (recentPages.length === 0) {
+        console.log('No recent pages found, using all available pages');
+        recentPages = searchData.results.slice(0, 15);
+      }
 
       // Process each page to extract content with comprehensive analysis
       const contentItems = [];
@@ -370,16 +376,40 @@ export class NotionOAuthService {
           // Extract title
           const title = this.extractPageTitle(pageDetails);
           
-          // ENHANCED: Multi-type content extraction
-          const extractedContent = await this.extractAllContentTypes(
-            contentData.results || [], 
-            accessToken, 
-            title, 
-            page.id,
-            page.last_edited_time,
-            page.url,
-            pageDetails.properties
-          );
+          // TRY ENHANCED EXTRACTION FIRST, FALLBACK TO SIMPLE
+          let extractedContent = [];
+          
+          try {
+            // ENHANCED: Multi-type content extraction
+            extractedContent = await this.extractAllContentTypes(
+              contentData.results || [], 
+              accessToken, 
+              title, 
+              page.id,
+              page.last_edited_time,
+              page.url,
+              pageDetails.properties
+            );
+          } catch (error) {
+            console.warn(`Enhanced extraction failed for "${title}", trying simple extraction:`, error);
+          }
+          
+          // FALLBACK: Simple extraction if enhanced fails
+          if (extractedContent.length === 0) {
+            const simpleContent = this.extractSimplePageContent(
+              contentData.results || [],
+              title,
+              page.id,
+              page.last_edited_time,
+              page.url,
+              pageDetails.properties
+            );
+            
+            if (simpleContent) {
+              extractedContent = [simpleContent];
+              console.log(`✅ Simple extraction successful for "${title}"`);
+            }
+          }
           
           contentItems.push(...extractedContent);
           
@@ -392,15 +422,14 @@ export class NotionOAuthService {
         }
       }
       
-      // Final validation: ensure all items have required properties
+      // Final validation: ensure all items have required properties (more lenient)
       const validatedItems = contentItems.filter(item => {
         if (!item || typeof item !== 'object') {
           console.warn('Invalid item (not an object):', item);
           return false;
         }
-        if (!item.content || typeof item.content !== 'string' || item.content.trim().length === 0) {
-          console.warn('Item missing or empty content property:', item.title || 'Untitled');
-          // Skip items with no meaningful content instead of adding placeholder
+        if (!item.content || typeof item.content !== 'string' || item.content.trim().length < 10) {
+          console.warn('Item missing or insufficient content:', item.title || 'Untitled', `(${item.content?.length || 0} chars)`);
           return false;
         }
         if (!item.title) {
@@ -1862,7 +1891,7 @@ ${specificContent}
     
     const fullContent = this.extractTextFromBlocks(blocks);
     
-    if (fullContent.trim().length > 50) {
+    if (fullContent.trim().length > 20) {
       const item = {
         id: pageId,
         title: pageTitle || 'Untitled',
@@ -1883,6 +1912,81 @@ ${specificContent}
       return item;
     }
     
+    return null;
+  }
+
+  // Simple extraction method as fallback when complex extraction fails
+  private extractSimplePageContent(blocks: any[], pageTitle: string, pageId: string, lastEdited: string, url: string, properties: any): any | null {
+    console.log(`📄 SIMPLE EXTRACTION for "${pageTitle}"`);
+    
+    let pageContent = '';
+    
+    blocks.forEach(block => {
+      let blockText = '';
+      
+      switch (block.type) {
+        case 'paragraph':
+          blockText = block.paragraph?.rich_text?.map((t: any) => t.plain_text).join('') || '';
+          break;
+        case 'heading_1':
+          blockText = '# ' + (block.heading_1?.rich_text?.map((t: any) => t.plain_text).join('') || '');
+          break;
+        case 'heading_2':
+          blockText = '## ' + (block.heading_2?.rich_text?.map((t: any) => t.plain_text).join('') || '');
+          break;
+        case 'heading_3':
+          blockText = '### ' + (block.heading_3?.rich_text?.map((t: any) => t.plain_text).join('') || '');
+          break;
+        case 'bulleted_list_item':
+          blockText = '• ' + (block.bulleted_list_item?.rich_text?.map((t: any) => t.plain_text).join('') || '');
+          break;
+        case 'numbered_list_item':
+          blockText = '1. ' + (block.numbered_list_item?.rich_text?.map((t: any) => t.plain_text).join('') || '');
+          break;
+        case 'to_do':
+          const checked = block.to_do?.checked ? '[x]' : '[ ]';
+          blockText = `${checked} ${block.to_do?.rich_text?.map((t: any) => t.plain_text).join('') || ''}`;
+          break;
+        case 'toggle':
+          blockText = '🔽 ' + (block.toggle?.rich_text?.map((t: any) => t.plain_text).join('') || '');
+          break;
+        case 'quote':
+          blockText = '> ' + (block.quote?.rich_text?.map((t: any) => t.plain_text).join('') || '');
+          break;
+        case 'callout':
+          blockText = '📝 ' + (block.callout?.rich_text?.map((t: any) => t.plain_text).join('') || '');
+          break;
+        case 'code':
+          blockText = '```\n' + (block.code?.rich_text?.map((t: any) => t.plain_text).join('') || '') + '\n```';
+          break;
+      }
+      
+      if (blockText.trim()) {
+        pageContent += blockText + '\n\n';
+      }
+    });
+    
+    // More lenient content check - only need 20 characters
+    if (pageContent.trim().length > 20) {
+      const item = {
+        id: pageId,
+        title: pageTitle || 'Untitled',
+        content: pageContent.trim(),
+        type: 'page',
+        parentPage: pageTitle,
+        lastEdited: lastEdited,
+        url: url,
+        properties: properties,
+        contentType: 'page',
+        wordCount: pageContent.split(/\s+/).length,
+        extractionMethod: 'simple_fallback'
+      };
+      
+      console.log(`📄 Simple extraction complete: ${item.wordCount} words`);
+      return item;
+    }
+    
+    console.log(`📄 Simple extraction failed: insufficient content (${pageContent.length} chars)`);
     return null;
   }
 
@@ -2070,6 +2174,7 @@ ${specificContent}
                 console.log(`${indentation}   ❌ API error for nested toggle`);
               }
             } catch (error) {
+              const indentation = '  '.repeat(depth);
               console.warn(`${indentation}Failed to fetch nested toggle children for ${block.id}:`, error);
               content += `\n🔽 ${nestedToggleTitle}\n[Error accessing toggle content]\n`;
             }

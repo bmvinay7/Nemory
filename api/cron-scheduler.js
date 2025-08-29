@@ -273,25 +273,23 @@ async function generateAISummary(schedule, notionAccessToken) {
     }
   }
 
-  // Generate AI summary - temporarily disabled for debugging
+  // Generate AI summary
   let aiSummary;
   
-  // TEMPORARY: Skip AI and use basic summary for testing
-  console.log(`⚠️ Using basic summary (AI temporarily disabled for debugging)`);
-  aiSummary = `📋 **Daily Summary** (${new Date().toLocaleDateString()})\n\n` +
-              `Found ${recentPages.length} recent pages in your Notion workspace:\n\n` +
-              recentPages.slice(0, 5).map(page => 
-                `• ${page.properties?.title?.title?.[0]?.plain_text || 'Untitled'}`
-              ).join('\n') +
-              `\n\n*This is a basic content overview. AI summarization will be re-enabled once debugging is complete.*`;
-  
-  // TODO: Re-enable AI summarization
-  // try {
-  //   aiSummary = await generateGeminiSummary(allContent, schedule.summaryConfig);
-  // } catch (aiError) {
-  //   console.log(`⚠️ AI summary failed, using fallback: ${aiError.message}`);
-  //   aiSummary = basicSummary;
-  // }
+  try {
+    console.log(`🤖 Generating AI summary for ${recentPages.length} pages...`);
+    aiSummary = await generateGeminiSummary(allContent, schedule.summaryConfig);
+    console.log(`✅ AI summary generated successfully`);
+  } catch (aiError) {
+    console.log(`⚠️ AI summary failed, using fallback: ${aiError.message}`);
+    // Fallback to basic summary if AI fails
+    aiSummary = `📋 **Daily Summary** (${new Date().toLocaleDateString()})\n\n` +
+                `Found ${recentPages.length} recent pages in your Notion workspace:\n\n` +
+                recentPages.slice(0, 5).map(page => 
+                  `• ${page.properties?.title?.title?.[0]?.plain_text || 'Untitled'}`
+                ).join('\n') +
+                `\n\n*AI summarization temporarily unavailable. Showing basic content overview.*`;
+  }
 
   return {
     summary: aiSummary,

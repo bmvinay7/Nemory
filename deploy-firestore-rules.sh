@@ -7,4 +7,4 @@ firebase deploy --only firestore:rules
 
 echo "✅ Firestore rules deployed successfully!"
 echo "🔍 You can verify the rules in the Firebase Console:"
-echo "   https://console.firebase.google.com/project/YOUR_PROJECT_ID/firestore/rules"
+echo "   https://console.firebase.google.com/project/$(firebase use --current 2>/dev/null || echo 'YOUR_PROJECT_ID')/firestore/rules"

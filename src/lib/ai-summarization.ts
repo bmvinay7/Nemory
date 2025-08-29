@@ -35,15 +35,22 @@ export interface NotionContent {
   id: string;
   title: string;
   content: string;
-  type: 'page' | 'database' | 'block' | 'toggle';
+  type: 'page' | 'database' | 'block' | 'toggle' | 'callout' | 'quote';
   lastEdited: string;
   url: string;
-  properties?: Record<string, any>;
+  properties?: Record<string, unknown>;
   // Toggle-specific properties
-  contentType?: 'toggle' | 'regular';
+  contentType?: 'toggle' | 'regular' | 'section' | 'list_item' | 'highlight' | 'page';
   toggleTitle?: string;
   parentPage?: string;
   wordCount?: number;
+  // Additional properties for different content types
+  extractionMethod?: string;
+  isClosedToggle?: boolean;
+  sectionTitle?: string;
+  listType?: string;
+  isCompleted?: boolean;
+  contentStructure?: any;
 }
 
 export interface SummaryOptions {
@@ -387,10 +394,10 @@ export class AISummarizationService {
       console.log(`   ✅ Selected: [${selectedType.toUpperCase()}] "${selectedItem.title}"`);
       console.log(`   📊 Score: ${selectedScore}`);
       console.log(`   📊 Content length: ${selectedItem.content.length} characters`);
-      console.log(`   📊 Word count: ${(selectedItem as any).wordCount || selectedItem.content.split(/\s+/).length} words`);
+      console.log(`   📊 Word count: ${(selectedItem as NotionContent).wordCount || selectedItem.content.split(/\s+/).length} words`);
       
       if (selectedType === 'toggle') {
-        const toggleItem = selectedItem as any;
+        const toggleItem = selectedItem as NotionContent;
         console.log(`   🔽 SINGLE TOGGLE SELECTED:`);
         console.log(`      📄 Parent Page: ${toggleItem.parentPage}`);
         console.log(`      🔽 Toggle Title: ${toggleItem.toggleTitle}`);
@@ -423,11 +430,11 @@ export class AISummarizationService {
   // Categorize content by type for better organization
   private categorizeContent(content: NotionContent[]) {
     return {
-      toggles: content.filter((item: any) => item.contentType === 'toggle'),
-      sections: content.filter((item: any) => item.contentType === 'section'),
-      listItems: content.filter((item: any) => item.contentType === 'list_item'),
-      highlights: content.filter((item: any) => item.contentType === 'highlight'),
-      pages: content.filter((item: any) => item.contentType === 'page' || !item.contentType),
+      toggles: content.filter((item: NotionContent) => item.contentType === 'toggle'),
+      sections: content.filter((item: NotionContent) => item.contentType === 'section'),
+      listItems: content.filter((item: NotionContent) => item.contentType === 'list_item'),
+      highlights: content.filter((item: NotionContent) => item.contentType === 'highlight'),
+      pages: content.filter((item: NotionContent) => item.contentType === 'page' || !item.contentType),
     };
   }
 
@@ -435,7 +442,7 @@ export class AISummarizationService {
   private scoreContentByType(items: NotionContent[], contentType: string) {
     return items.map(item => {
       let score = 0;
-      const itemAny = item as any;
+      const itemAny = item as NotionContent;
       
       // TYPE-SPECIFIC SCORING
       switch (contentType) {
@@ -486,7 +493,7 @@ export class AISummarizationService {
   }
 
   // Toggle-specific scoring with enhanced individual toggle prioritization
-  private scoreToggleContent(item: any): number {
+  private scoreToggleContent(item: NotionContent): number {
     let score = 0;
     
     const toggleTitle = item.toggleTitle || '';
@@ -564,7 +571,7 @@ export class AISummarizationService {
   }
 
   // Section-specific scoring
-  private scoreSectionContent(item: any): number {
+  private scoreSectionContent(item: NotionContent): number {
     let score = 0;
     
     const sectionTitle = item.sectionTitle || '';
@@ -588,7 +595,7 @@ export class AISummarizationService {
   }
 
   // List item-specific scoring
-  private scoreListContent(item: any): number {
+  private scoreListContent(item: NotionContent): number {
     let score = 0;
     
     // Task completion status
@@ -607,7 +614,7 @@ export class AISummarizationService {
   }
 
   // Highlight-specific scoring
-  private scoreHighlightContent(item: any): number {
+  private scoreHighlightContent(item: NotionContent): number {
     let score = 0;
     
     // Callouts often contain important information
@@ -624,7 +631,7 @@ export class AISummarizationService {
   }
 
   // Page-specific scoring
-  private scorePageContent(item: any): number {
+  private scorePageContent(item: NotionContent): number {
     let score = 0;
     
     // Content structure analysis
@@ -900,7 +907,7 @@ export class AISummarizationService {
       
       // Step 4: Determine priority and tags
       const priority = this.determinePriority(summaryData, actionItems);
-      const tags = this.generateTags(processedContent, summaryData);
+      const tags = this.generateTags(content, summaryData);
       
       // Step 5: Create result object
       const result: SummaryResult = {

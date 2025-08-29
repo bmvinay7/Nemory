@@ -223,7 +223,7 @@ export class ScheduleStorageService {
       // Save to Firestore
       const docRef = doc(db, this.COLLECTION_EXECUTIONS, execution.id);
       const firestoreExecution = {
-        ...cleanedExecution,
+        ...(cleanedExecution as Record<string, unknown>),
         executedAt: Timestamp.fromDate(new Date(execution.executedAt))
       };
 
@@ -232,8 +232,7 @@ export class ScheduleStorageService {
           () => setDoc(docRef, firestoreExecution),
           'logExecution'
         ),
-        3,
-        1000
+        { maxRetries: 3 }
       );
 
       // Update schedule's last run time and run count ONLY if execution was successful

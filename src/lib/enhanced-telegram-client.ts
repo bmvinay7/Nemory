@@ -229,7 +229,7 @@ class EnhancedTelegramClient {
           }
         );
 
-        retryCount += (result as any).retryCount || 0;
+        retryCount += (result as { retryCount?: number }).retryCount || 0;
         results.push(result as TelegramDeliveryResult);
       }
 

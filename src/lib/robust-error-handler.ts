@@ -30,7 +30,7 @@ export class RobustErrorHandler {
   /**
    * Clean object for Firestore by removing undefined values recursively
    */
-  static cleanForFirestore(obj: any): any {
+  static cleanForFirestore(obj: unknown): unknown {
     try {
       if (obj === null || obj === undefined) {
         return null;
@@ -43,7 +43,7 @@ export class RobustErrorHandler {
       }
 
       if (typeof obj === 'object') {
-        const cleaned: any = {};
+        const cleaned: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(obj)) {
           if (value !== undefined && value !== null) {
             cleaned[key] = this.cleanForFirestore(value);
@@ -204,52 +204,59 @@ export class RobustErrorHandler {
   /**
    * Validate and sanitize execution data
    */
-  static validateExecutionData(execution: any): { isValid: boolean; sanitized?: any; errors: string[] } {
+  static validateExecutionData(execution: unknown): { isValid: boolean; sanitized?: Record<string, unknown>; errors: string[] } {
     const errors: string[] = [];
-    const sanitized: any = {};
+    const sanitized: Record<string, unknown> = {};
+    
+    if (!execution || typeof execution !== 'object') {
+      errors.push('Execution data must be an object');
+      return { isValid: false, errors };
+    }
+    
+    const exec = execution as Record<string, unknown>;
 
     // Required fields
-    if (!execution.id || typeof execution.id !== 'string') {
+    if (!exec.id || typeof exec.id !== 'string') {
       errors.push('Invalid execution ID');
     } else {
-      sanitized.id = execution.id.trim();
+      sanitized.id = (exec.id as string).trim();
     }
 
-    if (!execution.scheduleId || typeof execution.scheduleId !== 'string') {
+    if (!exec.scheduleId || typeof exec.scheduleId !== 'string') {
       errors.push('Invalid schedule ID');
     } else {
-      sanitized.scheduleId = execution.scheduleId.trim();
+      sanitized.scheduleId = (exec.scheduleId as string).trim();
     }
 
-    if (!execution.userId || typeof execution.userId !== 'string') {
+    if (!exec.userId || typeof exec.userId !== 'string') {
       errors.push('Invalid user ID');
     } else {
-      sanitized.userId = execution.userId.trim();
+      sanitized.userId = (exec.userId as string).trim();
     }
 
-    if (!execution.executedAt || typeof execution.executedAt !== 'string') {
+    if (!exec.executedAt || typeof exec.executedAt !== 'string') {
       errors.push('Invalid execution date');
     } else {
-      sanitized.executedAt = execution.executedAt;
+      sanitized.executedAt = exec.executedAt as string;
     }
 
     // Optional fields with defaults
-    sanitized.status = ['success', 'failed', 'partial'].includes(execution.status) 
-      ? execution.status 
+    sanitized.status = ['success', 'failed', 'partial'].includes(exec.status as string) 
+      ? (exec.status as string)
       : 'failed';
 
-    sanitized.contentProcessed = typeof execution.contentProcessed === 'number' 
-      ? Math.max(0, execution.contentProcessed) 
+    sanitized.contentProcessed = typeof exec.contentProcessed === 'number' 
+      ? Math.max(0, exec.contentProcessed as number) 
       : 0;
 
-    sanitized.executionTime = typeof execution.executionTime === 'number' 
-      ? Math.max(0, execution.executionTime) 
+    sanitized.executionTime = typeof exec.executionTime === 'number' 
+      ? Math.max(0, exec.executionTime as number) 
       : 0;
 
     // Clean delivery results
     sanitized.deliveryResults = {};
-    if (execution.deliveryResults && typeof execution.deliveryResults === 'object') {
-      for (const [method, result] of Object.entries(execution.deliveryResults)) {
+    if (exec.deliveryResults && typeof exec.deliveryResults === 'object') {
+      for (const [method, result] of Object.entries(exec.deliveryResults as Record<string, unknown>)) {
         if (result && typeof result === 'object') {
           sanitized.deliveryResults[method] = this.cleanForFirestore(result);
         }
@@ -257,12 +264,12 @@ export class RobustErrorHandler {
     }
 
     // Optional fields
-    if (execution.summaryId && typeof execution.summaryId === 'string') {
-      sanitized.summaryId = execution.summaryId.trim();
+    if (exec.summaryId && typeof exec.summaryId === 'string') {
+      sanitized.summaryId = (exec.summaryId as string).trim();
     }
 
-    if (execution.error && typeof execution.error === 'string') {
-      sanitized.error = execution.error.substring(0, 1000); // Limit error message length
+    if (exec.error && typeof exec.error === 'string') {
+      sanitized.error = (exec.error as string).substring(0, 1000); // Limit error message length
     }
 
     return {
@@ -275,7 +282,7 @@ export class RobustErrorHandler {
   /**
    * Enhanced error logging with detailed context and error categorization
    */
-  static logError(context: string, error: any, additionalData?: any): void {
+  static logError(context: string, error: unknown, additionalData?: unknown): void {
     // Ensure error is properly formatted
     const errorObj = error instanceof Error ? error : new Error(String(error));
     
@@ -284,8 +291,8 @@ export class RobustErrorHandler {
       message: errorObj.message,
       name: errorObj.name,
       stack: errorObj.stack,
-      code: (error as any).code, // Capture error codes from API errors
-      status: (error as any).status, // Capture HTTP status codes
+      code: (error as Record<string, unknown>)?.code as string, // Capture error codes from API errors
+      status: (error as Record<string, unknown>)?.status as number, // Capture HTTP status codes
       type: this.categorizeError(error),
       timestamp: new Date().toISOString(),
       context,
@@ -293,10 +300,11 @@ export class RobustErrorHandler {
     };
 
     // Log to console with proper formatting
+    const cleanedAdditionalData = additionalData ? this.cleanForFirestore(additionalData) : {};
     console.error('🚨 Error:', {
       ...errorDetails,
       // Clean undefined values
-      ...this.cleanForFirestore(additionalData)
+      ...(cleanedAdditionalData as Record<string, unknown>)
     });
 
     // If in development, provide more detailed logging
@@ -318,49 +326,54 @@ export class RobustErrorHandler {
   /**
    * Categorize error types for better error handling
    */
-  private static categorizeError(error: any): string {
+  private static categorizeError(error: unknown): string {
     if (error instanceof TypeError) return 'TypeError';
     if (this.isNetworkError(error)) return 'NetworkError';
     if (this.isTimeoutError(error)) return 'TimeoutError';
     if (this.isAuthenticationError(error)) return 'AuthenticationError';
-    if ((error as any).code?.startsWith('firestore/')) return 'FirestoreError';
+    if (typeof (error as Record<string, unknown>)?.code === 'string' && ((error as Record<string, unknown>).code as string).startsWith('firestore/')) return 'FirestoreError';
     return 'UnknownError';
   }
 
   /**
    * Check if error is a network error
    */
-  private static isNetworkError(error: any): boolean {
+  private static isNetworkError(error: unknown): boolean {
     return (
       error instanceof TypeError &&
       error.message.includes('network') ||
-      error.message.includes('fetch') ||
-      error.name === 'NetworkError'
+      (error as Error).message?.includes('fetch') ||
+      (error as Error).name === 'NetworkError'
     );
   }
 
   /**
    * Check if error is a timeout error
    */
-  private static isTimeoutError(error: any): boolean {
+  private static isTimeoutError(error: unknown): boolean {
     return (
-      error.message.includes('timeout') ||
-      error.code === 'ETIMEDOUT' ||
-      error.name === 'TimeoutError'
+      (error as Error).message?.includes('timeout') ||
+      (error as any).code === 'ETIMEDOUT' ||
+      (error as Error).name === 'TimeoutError'
     );
   }
 
   /**
    * Check if error is an authentication error
    */
-  private static isAuthenticationError(error: any): boolean {
+  private static isAuthenticationError(error: unknown): boolean {
+    const errorObj = error as Record<string, unknown>;
+    const message = errorObj?.message as string || '';
+    const code = errorObj?.code;
+    const status = errorObj?.status;
+    
     return (
-      error.message.includes('auth') ||
-      error.message.includes('unauthorized') ||
-      error.message.includes('unauthenticated') ||
-      error.code === 401 ||
-      error.status === 401 ||
-      (error as any).code?.startsWith('auth/')
+      message.includes('auth') ||
+      message.includes('unauthorized') ||
+      message.includes('unauthenticated') ||
+      code === 401 ||
+      status === 401 ||
+      (typeof code === 'string' && code.startsWith('auth/'))
     );
   }
 
@@ -372,7 +385,7 @@ export class RobustErrorHandler {
     options: {
       code?: string;
       status?: number;
-      details?: any;
+      details?: Record<string, unknown>;
       suggestion?: string;
       retryable?: boolean;
     } = {}
@@ -382,7 +395,7 @@ export class RobustErrorHandler {
     code?: string;
     status?: number;
     timestamp: string;
-    details?: any;
+    details?: Record<string, unknown>;
     suggestion?: string;
     retryable: boolean;
   } {
@@ -408,7 +421,7 @@ export class RobustErrorHandler {
       ...(code && { code }),
       ...(status && { status }),
       timestamp: new Date().toISOString(),
-      ...(sanitizedDetails && { details: sanitizedDetails }),
+      ...(sanitizedDetails && { details: sanitizedDetails as Record<string, unknown> }),
       ...(suggestion && { suggestion }),
       retryable
     };

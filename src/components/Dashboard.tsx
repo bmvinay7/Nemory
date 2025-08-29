@@ -259,7 +259,7 @@ const Dashboard: React.FC = () => {
                     size="sm"
                     variant="outline"
                     onClick={async () => {
-                      const { incrementNotesProcessed } = await import('@/contexts/MetricsContext');
+                      // Note: incrementNotesProcessed function not available in MetricsContext
                       // This won't work directly, we need to use the hook
                       toast({
                         title: "Use the AI Summarization feature",
