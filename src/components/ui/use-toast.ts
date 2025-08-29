@@ -42,7 +42,7 @@ export function useToast() {
 
 // Export toast function directly for convenience
 export const toast = (() => {
-  let toastFunction: ((props: Omit<Toast, "id">) => void) | null = null
+  const toastFunction: ((props: Omit<Toast, "id">) => void) | null = null
   
   return (props: Omit<Toast, "id">) => {
     if (toastFunction) {

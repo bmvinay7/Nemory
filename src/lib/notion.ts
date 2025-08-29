@@ -260,10 +260,11 @@ export class NotionOAuthService {
         case 'numbered_list_item':
           text += '1. ' + this.extractRichText(block.numbered_list_item?.rich_text || []) + '\n';
           break;
-        case 'to_do':
+        case 'to_do': {
           const checked = block.to_do?.checked ? '[x]' : '[ ]';
           text += `${checked} ${this.extractRichText(block.to_do?.rich_text || [])}\n`;
           break;
+        }
         case 'quote':
           text += '> ' + this.extractRichText(block.quote?.rich_text || []) + '\n\n';
           break;
@@ -486,7 +487,7 @@ export class NotionOAuthService {
       
       try {
         switch (strategy.type) {
-          case 'hierarchical_toggles':
+          case 'hierarchical_toggles': {
             const hierarchicalItems = await this.extractHierarchicalToggles(blocks, accessToken, pageTitle);
             if (hierarchicalItems.length > 0) {
               contentItems.push(...hierarchicalItems);
@@ -494,8 +495,9 @@ export class NotionOAuthService {
               return contentItems; // Success, return early
             }
             break;
+          }
             
-          case 'flat_toggles':
+          case 'flat_toggles': {
             const flatToggleItems = await this.extractFlatToggles(blocks, accessToken, pageTitle);
             if (flatToggleItems.length > 0) {
               contentItems.push(...flatToggleItems);
@@ -503,8 +505,9 @@ export class NotionOAuthService {
               return contentItems;
             }
             break;
+          }
             
-          case 'structured_sections':
+          case 'structured_sections': {
             const sectionItems = this.extractStructuredSections(blocks, pageTitle, pageId, lastEdited, url);
             if (sectionItems.length > 0) {
               contentItems.push(...sectionItems);
@@ -512,8 +515,9 @@ export class NotionOAuthService {
               return contentItems;
             }
             break;
+          }
             
-          case 'list_collections':
+          case 'list_collections': {
             const listCollections = this.extractListCollections(blocks, pageTitle, pageId, lastEdited, url);
             if (listCollections.length > 0) {
               contentItems.push(...listCollections);
@@ -521,8 +525,9 @@ export class NotionOAuthService {
               return contentItems;
             }
             break;
+          }
             
-          case 'individual_lists':
+          case 'individual_lists': {
             const individualLists = this.extractIndividualListItems(blocks, pageTitle, pageId, lastEdited, url);
             if (individualLists.length > 0) {
               contentItems.push(...individualLists);
@@ -530,8 +535,9 @@ export class NotionOAuthService {
               return contentItems;
             }
             break;
+          }
             
-          case 'highlight_blocks':
+          case 'highlight_blocks': {
             const highlightItems = this.extractHighlightBlocks(blocks, pageTitle, pageId, lastEdited, url);
             if (highlightItems.length > 0) {
               contentItems.push(...highlightItems);
@@ -539,8 +545,9 @@ export class NotionOAuthService {
               return contentItems;
             }
             break;
+          }
             
-          case 'mixed_content':
+          case 'mixed_content': {
             const mixedItems = await this.extractMixedContent(blocks, accessToken, pageTitle, pageId, lastEdited, url);
             if (mixedItems.length > 0) {
               contentItems.push(...mixedItems);
@@ -548,8 +555,9 @@ export class NotionOAuthService {
               return contentItems;
             }
             break;
+          }
             
-          case 'full_page':
+          case 'full_page': {
             const pageItem = this.extractFullPageContent(blocks, pageTitle, pageId, lastEdited, url, properties, pageAnalysis);
             if (pageItem) {
               contentItems.push(pageItem);
@@ -557,6 +565,7 @@ export class NotionOAuthService {
               return contentItems;
             }
             break;
+          }
         }
       } catch (error) {
         console.warn(`  ⚠️ Strategy ${strategy.name} failed:`, error);
@@ -897,10 +906,11 @@ export class NotionOAuthService {
         case 'code':
           analysis.codeBlockCount++;
           break;
-        case 'paragraph':
+        case 'paragraph': {
           const text = this.extractRichText(block.paragraph?.rich_text || []);
           totalTextLength += text.length;
           break;
+        }
       }
     }
     
@@ -1943,10 +1953,11 @@ ${specificContent}
         case 'numbered_list_item':
           blockText = '1. ' + (block.numbered_list_item?.rich_text?.map((t: any) => t.plain_text).join('') || '');
           break;
-        case 'to_do':
+        case 'to_do': {
           const checked = block.to_do?.checked ? '[x]' : '[ ]';
           blockText = `${checked} ${block.to_do?.rich_text?.map((t: any) => t.plain_text).join('') || ''}`;
           break;
+        }
         case 'toggle':
           blockText = '🔽 ' + (block.toggle?.rich_text?.map((t: any) => t.plain_text).join('') || '');
           break;
@@ -2039,76 +2050,86 @@ ${specificContent}
     for (const block of blocks) {
       // Handle different block types
       switch (block.type) {
-        case 'paragraph':
+        case 'paragraph': {
           const paragraphText = this.extractRichText(block.paragraph?.rich_text || []);
           if (paragraphText.trim()) {
             content += paragraphText + '\n\n';
           }
           break;
+        }
           
-        case 'heading_1':
+        case 'heading_1': {
           const h1Text = this.extractRichText(block.heading_1?.rich_text || []);
           if (h1Text.trim()) {
             content += '# ' + h1Text + '\n\n';
           }
           break;
+        }
           
-        case 'heading_2':
+        case 'heading_2': {
           const h2Text = this.extractRichText(block.heading_2?.rich_text || []);
           if (h2Text.trim()) {
             content += '## ' + h2Text + '\n\n';
           }
           break;
+        }
           
-        case 'heading_3':
+        case 'heading_3': {
           const h3Text = this.extractRichText(block.heading_3?.rich_text || []);
           if (h3Text.trim()) {
             content += '### ' + h3Text + '\n\n';
           }
           break;
+        }
           
-        case 'bulleted_list_item':
+        case 'bulleted_list_item': {
           const bulletText = this.extractRichText(block.bulleted_list_item?.rich_text || []);
           if (bulletText.trim()) {
             content += '• ' + bulletText + '\n';
           }
           break;
+        }
           
-        case 'numbered_list_item':
+        case 'numbered_list_item': {
           const numberedText = this.extractRichText(block.numbered_list_item?.rich_text || []);
           if (numberedText.trim()) {
             content += '1. ' + numberedText + '\n';
           }
           break;
+        }
           
-        case 'to_do':
+        case 'to_do': {
           const todoText = this.extractRichText(block.to_do?.rich_text || []);
           if (todoText.trim()) {
             const checked = block.to_do?.checked ? '[x]' : '[ ]';
             content += `${checked} ${todoText}\n`;
           }
           break;
+        }
           
-        case 'quote':
+        case 'quote': {
           const quoteText = this.extractRichText(block.quote?.rich_text || []);
           if (quoteText.trim()) {
             content += '> ' + quoteText + '\n\n';
           }
           break;
+        }
           
-        case 'callout':
+        case 'callout': {
           const calloutText = this.extractRichText(block.callout?.rich_text || []);
           if (calloutText.trim()) {
             content += '📝 ' + calloutText + '\n\n';
           }
           break;
+        }
           
-        case 'code':
+        case 'code': {
           const codeText = this.extractRichText(block.code?.rich_text || []);
           if (codeText.trim()) {
             content += '```\n' + codeText + '\n```\n\n';
           }
           break;
+        }
           
         case 'toggle':
           // ENHANCED: Handle hierarchical nested toggles with proper depth tracking

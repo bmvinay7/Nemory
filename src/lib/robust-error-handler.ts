@@ -60,7 +60,7 @@ export class RobustErrorHandler {
   }
 
   /**
-   * Sanitize text for Telegram MarkdownV2 with enhanced error handling
+   * Sanitize text for Telegram HTML format
    */
   static sanitizeForTelegram(text: string): string {
     try {
@@ -68,34 +68,18 @@ export class RobustErrorHandler {
       
       // Remove control characters and limit length
       let sanitized = text
+        // eslint-disable-next-line no-control-regex
         .replace(/[\u0000-\u001F\u007F]/g, '')
         .substring(0, 4000);
       
       // Normalize line endings
       sanitized = sanitized.replace(/\r\n?/g, '\n');
       
-      // First escape the backslash itself
-      let escaped = sanitized.replace(/\\/g, '\\\\');
-      
-      // Then escape all other special characters
-      const specialChars = '_*[]()~`>#+=-|{}.!';
-      for (const char of specialChars) {
-        escaped = escaped.replace(new RegExp('\\' + char, 'g'), '\\' + char);
-      }
-      
-      // Validate the escaped string
-      const invalidChars = escaped.match(/[_*\[\]()~`>#+\-=|{}.!]/g);
-      if (invalidChars) {
-        this.logError('sanitizeForTelegram', 
-          new Error(`Found unescaped characters: ${invalidChars.join(', ')}`));
-        // Re-escape any missed characters
-        for (const char of invalidChars) {
-          escaped = escaped.replace(new RegExp('\\' + char, 'g'), '\\' + char);
-        }
-      }
-      
-      // Ensure proper line breaks for Telegram
-      escaped = escaped.replace(/\n/g, '\\n');
+      // Escape HTML special characters
+      const escaped = sanitized
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
       
       return escaped;
     } catch (error) {
