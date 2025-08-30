@@ -197,16 +197,21 @@ async function executeSchedule(schedule) {
 }
 
 /**
- * Generate AI summary using Notion content
+ * Generate AI summary using Notion content (Enhanced version)
  */
 async function generateAISummary(schedule, notionAccessToken) {
-  // Calculate date range
+  console.log(`🔍 Starting content search for schedule: ${schedule.name}`);
+  
+  // Use a more flexible date range - default to 14 days instead of 7
+  const contentDays = schedule.summaryConfig?.contentDays || 14;
   const endDate = new Date();
   const startDate = new Date();
-  startDate.setDate(startDate.getDate() - (schedule.summaryConfig?.contentDays || 7));
+  startDate.setDate(startDate.getDate() - contentDays);
+  
+  console.log(`📅 Searching for content from ${startDate.toISOString()} to ${endDate.toISOString()}`);
 
-  // Search Notion for recent content
-  const searchResponse = await fetch('https://api.notion.com/v1/search', {
+  // First, try to get all pages without date filtering to see what's available
+  const allPagesResponse = await fetch('https://api.notion.com/v1/search', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${notionAccessToken}`,
@@ -222,41 +227,131 @@ async function generateAISummary(schedule, notionAccessToken) {
         direction: 'descending',
         timestamp: 'last_edited_time'
       },
-      page_size: 50
+      page_size: 100
     })
   });
 
-  if (!searchResponse.ok) {
-    throw new Error(`Notion API error: ${searchResponse.status}`);
+  if (!allPagesResponse.ok) {
+    const errorText = await allPagesResponse.text();
+    console.error(`❌ Notion API error: ${allPagesResponse.status} - ${errorText}`);
+    throw new Error(`Notion API error: ${allPagesResponse.status}`);
   }
 
-  const searchData = await searchResponse.json();
-  const recentPages = searchData.results.filter(page => {
+  const allPagesData = await allPagesResponse.json();
+  console.log(`📄 Found ${allPagesData.results.length} total pages in workspace`);
+
+  // Filter by date range
+  const recentPages = allPagesData.results.filter(page => {
     const lastEdited = new Date(page.last_edited_time);
-    return lastEdited >= startDate && lastEdited <= endDate;
+    const createdTime = new Date(page.created_time);
+    // Include pages that were either edited or created in the time range
+    return (lastEdited >= startDate && lastEdited <= endDate) || 
+           (createdTime >= startDate && createdTime <= endDate);
   });
 
+  console.log(`📅 Found ${recentPages.length} pages in date range (${contentDays} days)`);
+
+  // If no recent pages, try with a longer time range (30 days)
   if (recentPages.length === 0) {
-    // Test Gemini API with simple content when no pages found
-    try {
-      const testSummary = await generateGeminiSummary("Test content: Hello world", schedule.summaryConfig);
+    console.log(`⚠️ No recent pages found, trying 30-day range...`);
+    const extendedStartDate = new Date();
+    extendedStartDate.setDate(extendedStartDate.getDate() - 30);
+    
+    const extendedPages = allPagesData.results.filter(page => {
+      const lastEdited = new Date(page.last_edited_time);
+      const createdTime = new Date(page.created_time);
+      return (lastEdited >= extendedStartDate && lastEdited <= endDate) || 
+             (createdTime >= extendedStartDate && createdTime <= endDate);
+    });
+    
+    console.log(`📅 Found ${extendedPages.length} pages in extended 30-day range`);
+    
+    if (extendedPages.length === 0) {
+      // If still no pages, get the most recent 5 pages regardless of date
+      console.log(`⚠️ Still no pages found, getting most recent 5 pages...`);
+      const mostRecentPages = allPagesData.results.slice(0, 5);
+      
+      if (mostRecentPages.length === 0) {
+        return {
+          summary: `📋 **No Content Available**\n\nYour Notion workspace appears to be empty or the integration doesn't have access to any pages.\n\n**Troubleshooting:**\n• Check if the Notion integration has access to your pages\n• Verify that pages exist in your workspace\n• Try reconnecting your Notion integration`,
+          contentCount: 0
+        };
+      }
+      
+      // Process the most recent pages
+      const { content, processedCount } = await extractContentFromPages(mostRecentPages, notionAccessToken);
+      const aiSummary = await generateGeminiSummary(content, schedule.summaryConfig, 'recent');
+      
       return {
-        summary: `📋 **No Recent Content Found**\n\nNo new pages were found in your Notion workspace for the specified time period.\n\n*AI Test: ${testSummary}*`,
-        contentCount: 0
-      };
-    } catch (error) {
-      return {
-        summary: `📋 **No Recent Content Found**\n\nNo new pages were found in your Notion workspace for the specified time period.\n\n*AI service temporarily unavailable.*`,
-        contentCount: 0
+        summary: `📋 **Recent Content Summary**\n\n${aiSummary}\n\n*Note: No recent activity found in the last ${contentDays} days. This summary includes your most recent ${processedCount} pages.*`,
+        contentCount: processedCount
       };
     }
+    
+    // Use extended pages
+    const { content, processedCount } = await extractContentFromPages(extendedPages.slice(0, 15), notionAccessToken);
+    const aiSummary = await generateGeminiSummary(content, schedule.summaryConfig, 'extended');
+    
+    return {
+      summary: `📋 **Extended Period Summary**\n\n${aiSummary}\n\n*Processed ${processedCount} pages from the last 30 days.*`,
+      contentCount: processedCount
+    };
   }
 
-  // Get content from pages
+  // Process recent pages
+  const { content, processedCount } = await extractContentFromPages(recentPages.slice(0, 15), notionAccessToken);
+  
+  if (!content || content.trim().length === 0) {
+    return {
+      summary: `📋 **Pages Found But No Content**\n\nFound ${recentPages.length} pages but they appear to be empty or contain only formatting.\n\n**Recent Pages:**\n${recentPages.slice(0, 5).map(page => `• ${page.properties?.title?.title?.[0]?.plain_text || 'Untitled'}`).join('\n')}\n\n*Try adding more content to your Notion pages.*`,
+      contentCount: recentPages.length
+    };
+  }
+
+  // Generate AI summary
+  let aiSummary;
+  
+  try {
+    console.log(`🤖 Generating AI summary for ${processedCount} pages with ${content.length} characters...`);
+    aiSummary = await generateGeminiSummary(content, schedule.summaryConfig, 'normal');
+    console.log(`✅ AI summary generated successfully`);
+  } catch (aiError) {
+    console.log(`⚠️ AI summary failed, using fallback: ${aiError.message}`);
+    // Enhanced fallback summary
+    aiSummary = `📋 **Content Overview** (${new Date().toLocaleDateString()})\n\n` +
+                `**Recent Activity:** Found ${recentPages.length} pages with activity in the last ${contentDays} days\n\n` +
+                `**Pages Processed:**\n` +
+                recentPages.slice(0, 8).map((page, index) => {
+                  const title = page.properties?.title?.title?.[0]?.plain_text || 'Untitled';
+                  const lastEdited = new Date(page.last_edited_time).toLocaleDateString();
+                  return `${index + 1}. **${title}** (edited ${lastEdited})`;
+                }).join('\n') +
+                `\n\n**Content Preview:**\n${content.substring(0, 500)}${content.length > 500 ? '...' : ''}` +
+                `\n\n*AI summarization temporarily unavailable. Showing content overview instead.*`;
+  }
+
+  return {
+    summary: aiSummary,
+    contentCount: processedCount
+  };
+}
+
+/**
+ * Enhanced content extraction from Notion pages
+ */
+async function extractContentFromPages(pages, notionAccessToken) {
   let allContent = '';
-  for (const page of recentPages.slice(0, 10)) { // Limit to 10 pages
+  let processedCount = 0;
+  
+  console.log(`📖 Extracting content from ${pages.length} pages...`);
+  
+  for (const page of pages) {
     try {
-      const contentResponse = await fetch(`https://api.notion.com/v1/blocks/${page.id}/children`, {
+      const pageTitle = page.properties?.title?.title?.[0]?.plain_text || 'Untitled';
+      console.log(`📄 Processing page: ${pageTitle}`);
+      
+      // Get page content
+      const contentResponse = await fetch(`https://api.notion.com/v1/blocks/${page.id}/children?page_size=100`, {
         headers: {
           'Authorization': `Bearer ${notionAccessToken}`,
           'Notion-Version': '2022-06-28'
@@ -266,124 +361,217 @@ async function generateAISummary(schedule, notionAccessToken) {
       if (contentResponse.ok) {
         const contentData = await contentResponse.json();
         const pageContent = extractTextFromBlocks(contentData.results);
-        allContent += `\n\n--- ${page.properties?.title?.title?.[0]?.plain_text || 'Untitled'} ---\n${pageContent}`;
+        
+        if (pageContent && pageContent.trim().length > 0) {
+          allContent += `\n\n=== ${pageTitle} ===\n`;
+          allContent += `Last edited: ${new Date(page.last_edited_time).toLocaleDateString()}\n`;
+          allContent += pageContent;
+          processedCount++;
+          console.log(`✅ Extracted ${pageContent.length} characters from "${pageTitle}"`);
+        } else {
+          console.log(`⚠️ No content found in "${pageTitle}"`);
+        }
+        
+        // Add a small delay to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } else {
+        console.warn(`❌ Failed to get content for page "${pageTitle}": ${contentResponse.status}`);
       }
     } catch (error) {
-      console.warn(`Failed to get content for page ${page.id}:`, error);
+      console.warn(`❌ Error processing page: ${error.message}`);
     }
   }
-
-  // Generate AI summary
-  let aiSummary;
   
-  try {
-    console.log(`🤖 Generating AI summary for ${recentPages.length} pages...`);
-    aiSummary = await generateGeminiSummary(allContent, schedule.summaryConfig);
-    console.log(`✅ AI summary generated successfully`);
-  } catch (aiError) {
-    console.log(`⚠️ AI summary failed, using fallback: ${aiError.message}`);
-    // Fallback to basic summary if AI fails
-    aiSummary = `📋 **Daily Summary** (${new Date().toLocaleDateString()})\n\n` +
-                `Found ${recentPages.length} recent pages in your Notion workspace:\n\n` +
-                recentPages.slice(0, 5).map(page => 
-                  `• ${page.properties?.title?.title?.[0]?.plain_text || 'Untitled'}`
-                ).join('\n') +
-                `\n\n*AI summarization temporarily unavailable. Showing basic content overview.*`;
-  }
-
+  console.log(`📊 Content extraction complete: ${processedCount} pages, ${allContent.length} characters`);
+  
   return {
-    summary: aiSummary,
-    contentCount: recentPages.length
+    content: allContent,
+    processedCount
   };
 }
 
 /**
- * Extract text content from Notion blocks
+ * Enhanced text extraction from Notion blocks
  */
 function extractTextFromBlocks(blocks) {
   let text = '';
   
   for (const block of blocks) {
-    switch (block.type) {
-      case 'paragraph':
-        text += block.paragraph?.rich_text?.map(t => t.plain_text).join('') + '\n';
-        break;
-      case 'heading_1':
-        text += '# ' + (block.heading_1?.rich_text?.map(t => t.plain_text).join('') || '') + '\n';
-        break;
-      case 'heading_2':
-        text += '## ' + (block.heading_2?.rich_text?.map(t => t.plain_text).join('') || '') + '\n';
-        break;
-      case 'heading_3':
-        text += '### ' + (block.heading_3?.rich_text?.map(t => t.plain_text).join('') || '') + '\n';
-        break;
-      case 'bulleted_list_item':
-        text += '• ' + (block.bulleted_list_item?.rich_text?.map(t => t.plain_text).join('') || '') + '\n';
-        break;
-      case 'numbered_list_item':
-        text += '1. ' + (block.numbered_list_item?.rich_text?.map(t => t.plain_text).join('') || '') + '\n';
-        break;
-      case 'to_do':
-        const checked = block.to_do?.checked ? '✅' : '☐';
-        text += `${checked} ${block.to_do?.rich_text?.map(t => t.plain_text).join('') || ''}\n`;
-        break;
+    try {
+      switch (block.type) {
+        case 'paragraph':
+          const paragraphText = block.paragraph?.rich_text?.map(t => t.plain_text).join('') || '';
+          if (paragraphText.trim()) {
+            text += paragraphText + '\n\n';
+          }
+          break;
+          
+        case 'heading_1':
+          const h1Text = block.heading_1?.rich_text?.map(t => t.plain_text).join('') || '';
+          if (h1Text.trim()) {
+            text += `# ${h1Text}\n\n`;
+          }
+          break;
+          
+        case 'heading_2':
+          const h2Text = block.heading_2?.rich_text?.map(t => t.plain_text).join('') || '';
+          if (h2Text.trim()) {
+            text += `## ${h2Text}\n\n`;
+          }
+          break;
+          
+        case 'heading_3':
+          const h3Text = block.heading_3?.rich_text?.map(t => t.plain_text).join('') || '';
+          if (h3Text.trim()) {
+            text += `### ${h3Text}\n\n`;
+          }
+          break;
+          
+        case 'bulleted_list_item':
+          const bulletText = block.bulleted_list_item?.rich_text?.map(t => t.plain_text).join('') || '';
+          if (bulletText.trim()) {
+            text += `• ${bulletText}\n`;
+          }
+          break;
+          
+        case 'numbered_list_item':
+          const numberedText = block.numbered_list_item?.rich_text?.map(t => t.plain_text).join('') || '';
+          if (numberedText.trim()) {
+            text += `1. ${numberedText}\n`;
+          }
+          break;
+          
+        case 'to_do':
+          const todoText = block.to_do?.rich_text?.map(t => t.plain_text).join('') || '';
+          if (todoText.trim()) {
+            const checked = block.to_do?.checked ? '✅' : '☐';
+            text += `${checked} ${todoText}\n`;
+          }
+          break;
+          
+        case 'toggle':
+          const toggleText = block.toggle?.rich_text?.map(t => t.plain_text).join('') || '';
+          if (toggleText.trim()) {
+            text += `▶ ${toggleText}\n`;
+          }
+          break;
+          
+        case 'callout':
+          const calloutText = block.callout?.rich_text?.map(t => t.plain_text).join('') || '';
+          if (calloutText.trim()) {
+            const emoji = block.callout?.icon?.emoji || '💡';
+            text += `${emoji} ${calloutText}\n\n`;
+          }
+          break;
+          
+        case 'quote':
+          const quoteText = block.quote?.rich_text?.map(t => t.plain_text).join('') || '';
+          if (quoteText.trim()) {
+            text += `> ${quoteText}\n\n`;
+          }
+          break;
+          
+        case 'code':
+          const codeText = block.code?.rich_text?.map(t => t.plain_text).join('') || '';
+          if (codeText.trim()) {
+            const language = block.code?.language || 'text';
+            text += `\`\`\`${language}\n${codeText}\n\`\`\`\n\n`;
+          }
+          break;
+          
+        case 'divider':
+          text += '---\n\n';
+          break;
+          
+        case 'table':
+          text += '[Table content]\n\n';
+          break;
+          
+        case 'table_row':
+          const rowText = block.table_row?.cells?.map(cell => 
+            cell.map(t => t.plain_text).join('')
+          ).join(' | ') || '';
+          if (rowText.trim()) {
+            text += `| ${rowText} |\n`;
+          }
+          break;
+          
+        default:
+          // Try to extract text from any rich_text property
+          if (block[block.type]?.rich_text) {
+            const genericText = block[block.type].rich_text.map(t => t.plain_text).join('') || '';
+            if (genericText.trim()) {
+              text += genericText + '\n';
+            }
+          }
+          break;
+      }
+    } catch (error) {
+      console.warn(`Error extracting text from block type ${block.type}:`, error);
     }
   }
   
-  return text;
+  return text.trim();
 }
 
 /**
- * Generate summary using Google Gemini AI
+ * Enhanced Gemini AI summary generation
  */
-async function generateGeminiSummary(content, summaryConfig) {
-  const apiKey = process.env.VITE_GOOGLE_AI_API_KEY;
+async function generateGeminiSummary(content, summaryConfig, context = 'normal') {
+  const apiKey = process.env.VITE_GOOGLE_AI_API_KEY || process.env.VITE_GOOGLE_GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error('Google AI API key not configured');
   }
 
   const style = summaryConfig?.style || 'executive';
   const length = summaryConfig?.length || 'medium';
-  const focusAreas = summaryConfig?.focusAreas || ['tasks', 'decisions'];
+  const focusAreas = summaryConfig?.focusAreas || ['tasks', 'decisions', 'insights'];
 
-  // Limit content length to avoid API limits
-  const maxContentLength = 8000;
+  // Limit content length to avoid API limits (Gemini has ~32k token limit)
+  const maxContentLength = 15000; // More generous limit
   const truncatedContent = content.length > maxContentLength ? 
-    content.substring(0, maxContentLength) + '\n\n[Content truncated...]' : 
+    content.substring(0, maxContentLength) + '\n\n[Content truncated due to length...]' : 
     content;
-    
-  let prompt = `Please create a ${style} summary of the following content. `;
-  prompt += `Make it ${length} length and focus on: ${focusAreas.join(', ')}.\n\n`;
-  prompt += `Content:\n${truncatedContent}`;
-  
-  console.log(`📝 Prompt length: ${prompt.length} characters`);
 
-  console.log(`🤖 Calling Gemini API with key: ${apiKey ? 'Present' : 'Missing'}`);
+  // Create context-aware prompt
+  let prompt = '';
   
-  // Try gemini-pro first, then fallback to gemini-1.5-flash
-  let response;
-  let modelUsed = '';
+  switch (context) {
+    case 'recent':
+      prompt = `You are analyzing the most recent content from a Notion workspace. `;
+      break;
+    case 'extended':
+      prompt = `You are analyzing content from the past 30 days from a Notion workspace. `;
+      break;
+    default:
+      prompt = `You are analyzing recent content from a Notion workspace. `;
+  }
   
-  try {
-    modelUsed = 'gemini-pro';
-    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: prompt }]
-        }]
-      })
-    });
-    
-    console.log(`🤖 Gemini API (${modelUsed}) response status: ${response.status}`);
-    
-    if (!response.ok && modelUsed === 'gemini-pro') {
-      console.log(`⚠️ gemini-pro failed, trying gemini-1.5-flash...`);
-      modelUsed = 'gemini-1.5-flash';
-      response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+  prompt += `Create a comprehensive ${style} summary that is ${length} in length. `;
+  prompt += `Focus particularly on: ${focusAreas.join(', ')}.\n\n`;
+  
+  // Add specific instructions for better summaries
+  prompt += `Instructions:\n`;
+  prompt += `- Identify key themes and patterns across the content\n`;
+  prompt += `- Extract actionable items and important decisions\n`;
+  prompt += `- Highlight any deadlines, meetings, or time-sensitive information\n`;
+  prompt += `- Note any questions or issues that need attention\n`;
+  prompt += `- Organize the summary in a clear, scannable format\n`;
+  prompt += `- Use emojis sparingly but effectively for visual organization\n\n`;
+  
+  prompt += `Content to analyze:\n${truncatedContent}`;
+  
+  console.log(`📝 Enhanced prompt: ${prompt.length} characters, content: ${truncatedContent.length} characters`);
+
+  // Try multiple models for better reliability
+  const models = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro'];
+  let lastError = null;
+  
+  for (const model of models) {
+    try {
+      console.log(`🤖 Trying Gemini model: ${model}`);
+      
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -391,32 +579,67 @@ async function generateGeminiSummary(content, summaryConfig) {
         body: JSON.stringify({
           contents: [{
             parts: [{ text: prompt }]
-          }]
+          }],
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 2048,
+          },
+          safetySettings: [
+            {
+              category: "HARM_CATEGORY_HARASSMENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_HATE_SPEECH",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            }
+          ]
         })
       });
-      console.log(`🤖 Gemini API (${modelUsed}) response status: ${response.status}`);
+      
+      console.log(`🤖 ${model} response status: ${response.status}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        const summary = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        
+        if (summary && summary.trim().length > 0) {
+          console.log(`✅ Successfully generated summary with ${model} (${summary.length} characters)`);
+          return summary;
+        } else {
+          console.log(`⚠️ ${model} returned empty summary`);
+          lastError = new Error(`${model} returned empty summary`);
+        }
+      } else {
+        const errorText = await response.text();
+        console.log(`❌ ${model} error: ${response.status} - ${errorText}`);
+        lastError = new Error(`${model} error: ${response.status} - ${errorText}`);
+      }
+      
+    } catch (fetchError) {
+      console.log(`❌ ${model} fetch error: ${fetchError.message}`);
+      lastError = fetchError;
     }
-    
-  } catch (fetchError) {
-    console.log(`❌ Fetch error: ${fetchError.message}`);
-    throw new Error(`Gemini API fetch error: ${fetchError.message}`);
   }
   
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.log(`❌ Gemini API (${modelUsed}) error response: ${errorText}`);
-    throw new Error(`Gemini API (${modelUsed}) error: ${response.status} - ${errorText}`);
-  }
-
-  const data = await response.json();
-  console.log(`✅ Gemini API (${modelUsed}) success`);
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Failed to generate summary';
+  // If all models failed, throw the last error
+  throw lastError || new Error('All Gemini models failed to generate summary');
 }
 
 /**
- * Send message via Telegram with improved error handling
+ * Format and send message via Telegram (Enhanced version matching frontend)
  */
-async function sendTelegramMessage(chatId, message) {
+async function sendTelegramMessage(chatId, summary) {
   const botToken = process.env.VITE_TELEGRAM_BOT_TOKEN;
   
   console.log(`Telegram: Attempting to send message to chat ${chatId}`);
@@ -432,11 +655,14 @@ async function sendTelegramMessage(chatId, message) {
   }
 
   // Ensure message is not empty and within limits
-  if (!message || typeof message !== 'string' || message.trim().length === 0) {
+  if (!summary || typeof summary !== 'string' || summary.trim().length === 0) {
     throw new Error('Message text is required');
   }
 
-  const truncatedMessage = message.length > 4096 ? message.substring(0, 4090) + '...' : message;
+  // Format message like the frontend does
+  const formattedMessage = formatSummaryForTelegram(summary);
+  const truncatedMessage = formattedMessage.length > 4096 ? 
+    formattedMessage.substring(0, 4090) + '...' : formattedMessage;
 
   try {
     const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
@@ -447,7 +673,8 @@ async function sendTelegramMessage(chatId, message) {
       body: JSON.stringify({
         chat_id: chatId.trim(),
         text: truncatedMessage,
-        parse_mode: 'HTML'
+        parse_mode: 'HTML',
+        disable_web_page_preview: true
       })
     });
 
@@ -467,6 +694,51 @@ async function sendTelegramMessage(chatId, message) {
     console.error('Telegram: Network error:', fetchError);
     throw new Error(`Telegram network error: ${fetchError.message}`);
   }
+}
+
+/**
+ * Format summary for Telegram with proper HTML escaping and structure
+ */
+function formatSummaryForTelegram(summary) {
+  // Escape HTML characters for Telegram
+  const escapeHtml = (text) => {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  };
+
+  let message = `🧠 <b>Nemory AI Summary</b>\n\n`;
+  
+  // Add timestamp
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-US', { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
+  const timeStr = now.toLocaleTimeString('en-US', { 
+    hour: '2-digit', 
+    minute: '2-digit',
+    timeZoneName: 'short'
+  });
+  
+  message += `📅 <b>Generated:</b> ${dateStr}\n`;
+  message += `⏰ <b>Time:</b> ${timeStr}\n\n`;
+  
+  // Add the main summary content (escape HTML)
+  const escapedSummary = escapeHtml(summary);
+  message += `📝 <b>Summary:</b>\n${escapedSummary}\n\n`;
+  
+  // Add footer
+  message += `---\n`;
+  message += `Generated by Nemory AI 🚀\n`;
+  message += `<i>Automated delivery via scheduled summary</i>`;
+  
+  return message;
 }
 
 /**

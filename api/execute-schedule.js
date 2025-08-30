@@ -101,16 +101,21 @@ async function executeSchedule(schedule) {
 }
 
 /**
- * Generate AI summary using Notion content
+ * Generate AI summary using Notion content (Enhanced version)
  */
 async function generateAISummary(schedule, notionAccessToken) {
-  // Calculate date range
+  console.log(`🔍 Starting manual content search for schedule: ${schedule.name}`);
+  
+  // Use the same enhanced logic as cron job
+  const contentDays = schedule.summaryConfig?.contentDays || 14;
   const endDate = new Date();
   const startDate = new Date();
-  startDate.setDate(startDate.getDate() - (schedule.summaryConfig?.contentDays || 7));
+  startDate.setDate(startDate.getDate() - contentDays);
+  
+  console.log(`📅 Searching for content from ${startDate.toISOString()} to ${endDate.toISOString()}`);
 
-  // Search Notion for recent content
-  const searchResponse = await fetch('https://api.notion.com/v1/search', {
+  // Get all pages first
+  const allPagesResponse = await fetch('https://api.notion.com/v1/search', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${notionAccessToken}`,
@@ -126,32 +131,83 @@ async function generateAISummary(schedule, notionAccessToken) {
         direction: 'descending',
         timestamp: 'last_edited_time'
       },
-      page_size: 20
+      page_size: 50
     })
   });
 
-  if (!searchResponse.ok) {
-    throw new Error(`Notion API error: ${searchResponse.status}`);
+  if (!allPagesResponse.ok) {
+    const errorText = await allPagesResponse.text();
+    console.error(`❌ Notion API error: ${allPagesResponse.status} - ${errorText}`);
+    throw new Error(`Notion API error: ${allPagesResponse.status}`);
   }
 
-  const searchData = await searchResponse.json();
-  const recentPages = searchData.results.filter(page => {
+  const allPagesData = await allPagesResponse.json();
+  console.log(`📄 Found ${allPagesData.results.length} total pages in workspace`);
+
+  // Filter by date range
+  const recentPages = allPagesData.results.filter(page => {
     const lastEdited = new Date(page.last_edited_time);
-    return lastEdited >= startDate && lastEdited <= endDate;
+    const createdTime = new Date(page.created_time);
+    return (lastEdited >= startDate && lastEdited <= endDate) || 
+           (createdTime >= startDate && createdTime <= endDate);
   });
 
+  console.log(`📅 Found ${recentPages.length} pages in date range (${contentDays} days)`);
+
   if (recentPages.length === 0) {
+    // Get most recent pages for manual execution
+    const mostRecentPages = allPagesData.results.slice(0, 5);
+    
+    if (mostRecentPages.length === 0) {
+      return {
+        summary: "📝 **Manual Execution Summary**\n\nNo pages found in your Notion workspace. Please check your integration permissions.",
+        contentCount: 0
+      };
+    }
+    
+    const { content, processedCount } = await extractContentFromPages(mostRecentPages, notionAccessToken);
+    const aiSummary = await generateGeminiSummary(content, schedule.summaryConfig, 'manual');
+    
     return {
-      summary: "📝 **Manual Execution Summary**\n\nNo recent content found for summarization in the specified time window.\n\n*Try adjusting the content days setting or check if there's been recent activity in your Notion workspace.*",
-      contentCount: 0
+      summary: `📝 **Manual Execution Summary**\n\n${aiSummary}\n\n*No recent activity found. Processed ${processedCount} most recent pages.*`,
+      contentCount: processedCount
     };
   }
 
-  // Get content from pages
+  // Process recent pages
+  const { content, processedCount } = await extractContentFromPages(recentPages.slice(0, 10), notionAccessToken);
+  
+  if (!content || content.trim().length === 0) {
+    return {
+      summary: `📝 **Manual Execution Summary**\n\nFound ${recentPages.length} pages but they appear to be empty.\n\n*Try adding more content to your Notion pages.*`,
+      contentCount: recentPages.length
+    };
+  }
+
+  // Generate AI summary
+  const aiSummary = await generateGeminiSummary(content, schedule.summaryConfig, 'manual');
+
+  return {
+    summary: `📝 **Manual Execution Summary**\n\n${aiSummary}\n\n*Processed ${processedCount} pages from the last ${contentDays} days.*`,
+    contentCount: processedCount
+  };
+}
+
+/**
+ * Enhanced content extraction from Notion pages
+ */
+async function extractContentFromPages(pages, notionAccessToken) {
   let allContent = '';
-  for (const page of recentPages.slice(0, 5)) { // Limit to 5 pages for manual execution
+  let processedCount = 0;
+  
+  console.log(`📖 Extracting content from ${pages.length} pages...`);
+  
+  for (const page of pages) {
     try {
-      const contentResponse = await fetch(`https://api.notion.com/v1/blocks/${page.id}/children`, {
+      const pageTitle = page.properties?.title?.title?.[0]?.plain_text || 'Untitled';
+      console.log(`📄 Processing page: ${pageTitle}`);
+      
+      const contentResponse = await fetch(`https://api.notion.com/v1/blocks/${page.id}/children?page_size=100`, {
         headers: {
           'Authorization': `Bearer ${notionAccessToken}`,
           'Notion-Version': '2022-06-28'
@@ -161,19 +217,25 @@ async function generateAISummary(schedule, notionAccessToken) {
       if (contentResponse.ok) {
         const contentData = await contentResponse.json();
         const pageContent = extractTextFromBlocks(contentData.results);
-        allContent += `\n\n--- ${page.properties?.title?.title?.[0]?.plain_text || 'Untitled'} ---\n${pageContent}`;
+        
+        if (pageContent && pageContent.trim().length > 0) {
+          allContent += `\n\n=== ${pageTitle} ===\n`;
+          allContent += `Last edited: ${new Date(page.last_edited_time).toLocaleDateString()}\n`;
+          allContent += pageContent;
+          processedCount++;
+          console.log(`✅ Extracted ${pageContent.length} characters from "${pageTitle}"`);
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
     } catch (error) {
-      console.warn(`Failed to get content for page ${page.id}:`, error);
+      console.warn(`❌ Error processing page: ${error.message}`);
     }
   }
-
-  // Generate AI summary
-  const aiSummary = await generateGeminiSummary(allContent, schedule.summaryConfig);
-
+  
   return {
-    summary: `📝 **Manual Execution Summary**\n\n${aiSummary}\n\n*This summary was manually triggered and processed ${recentPages.length} recent pages.*`,
-    contentCount: recentPages.length
+    content: allContent,
+    processedCount
   };
 }
 
@@ -214,46 +276,193 @@ function extractTextFromBlocks(blocks) {
 }
 
 /**
- * Generate summary using Google Gemini AI
+ * Enhanced Gemini AI summary generation
  */
-async function generateGeminiSummary(content, summaryConfig) {
-  const apiKey = process.env.VITE_GOOGLE_AI_API_KEY;
+async function generateGeminiSummary(content, summaryConfig, context = 'manual') {
+  const apiKey = process.env.VITE_GOOGLE_AI_API_KEY || process.env.VITE_GOOGLE_GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error('Google AI API key not configured');
   }
 
   const style = summaryConfig?.style || 'executive';
   const length = summaryConfig?.length || 'medium';
-  const focusAreas = summaryConfig?.focusAreas || ['tasks', 'decisions'];
+  const focusAreas = summaryConfig?.focusAreas || ['tasks', 'decisions', 'insights'];
 
-  let prompt = `Please create a ${style} summary of the following content. `;
-  prompt += `Make it ${length} length and focus on: ${focusAreas.join(', ')}.\n\n`;
-  prompt += `Content:\n${content}`;
+  const maxContentLength = 15000;
+  const truncatedContent = content.length > maxContentLength ? 
+    content.substring(0, maxContentLength) + '\n\n[Content truncated due to length...]' : 
+    content;
 
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      contents: [{
-        parts: [{ text: prompt }]
-      }]
-    })
-  });
+  let prompt = `You are analyzing content from a Notion workspace for a manual summary request. `;
+  prompt += `Create a comprehensive ${style} summary that is ${length} in length. `;
+  prompt += `Focus particularly on: ${focusAreas.join(', ')}.\n\n`;
+  
+  prompt += `Instructions:\n`;
+  prompt += `- Identify key themes and patterns across the content\n`;
+  prompt += `- Extract actionable items and important decisions\n`;
+  prompt += `- Highlight any deadlines, meetings, or time-sensitive information\n`;
+  prompt += `- Note any questions or issues that need attention\n`;
+  prompt += `- Organize the summary in a clear, scannable format\n`;
+  prompt += `- Use emojis sparingly but effectively for visual organization\n\n`;
+  
+  prompt += `Content to analyze:\n${truncatedContent}`;
 
-  if (!response.ok) {
-    throw new Error(`Gemini API error: ${response.status}`);
+  const models = ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-pro'];
+  let lastError = null;
+  
+  for (const model of models) {
+    try {
+      console.log(`🤖 Trying Gemini model: ${model}`);
+      
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{ text: prompt }]
+          }],
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 2048,
+          }
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const summary = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        
+        if (summary && summary.trim().length > 0) {
+          console.log(`✅ Successfully generated summary with ${model}`);
+          return summary;
+        }
+      } else {
+        const errorText = await response.text();
+        lastError = new Error(`${model} error: ${response.status} - ${errorText}`);
+      }
+      
+    } catch (fetchError) {
+      lastError = fetchError;
+    }
   }
-
-  const data = await response.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Failed to generate summary';
+  
+  throw lastError || new Error('All Gemini models failed to generate summary');
 }
 
 /**
- * Send message via Telegram with improved error handling
+ * Enhanced text extraction from Notion blocks
  */
-async function sendTelegramMessage(chatId, message) {
+function extractTextFromBlocks(blocks) {
+  let text = '';
+  
+  for (const block of blocks) {
+    try {
+      switch (block.type) {
+        case 'paragraph':
+          const paragraphText = block.paragraph?.rich_text?.map(t => t.plain_text).join('') || '';
+          if (paragraphText.trim()) {
+            text += paragraphText + '\n\n';
+          }
+          break;
+          
+        case 'heading_1':
+          const h1Text = block.heading_1?.rich_text?.map(t => t.plain_text).join('') || '';
+          if (h1Text.trim()) {
+            text += `# ${h1Text}\n\n`;
+          }
+          break;
+          
+        case 'heading_2':
+          const h2Text = block.heading_2?.rich_text?.map(t => t.plain_text).join('') || '';
+          if (h2Text.trim()) {
+            text += `## ${h2Text}\n\n`;
+          }
+          break;
+          
+        case 'heading_3':
+          const h3Text = block.heading_3?.rich_text?.map(t => t.plain_text).join('') || '';
+          if (h3Text.trim()) {
+            text += `### ${h3Text}\n\n`;
+          }
+          break;
+          
+        case 'bulleted_list_item':
+          const bulletText = block.bulleted_list_item?.rich_text?.map(t => t.plain_text).join('') || '';
+          if (bulletText.trim()) {
+            text += `• ${bulletText}\n`;
+          }
+          break;
+          
+        case 'numbered_list_item':
+          const numberedText = block.numbered_list_item?.rich_text?.map(t => t.plain_text).join('') || '';
+          if (numberedText.trim()) {
+            text += `1. ${numberedText}\n`;
+          }
+          break;
+          
+        case 'to_do':
+          const todoText = block.to_do?.rich_text?.map(t => t.plain_text).join('') || '';
+          if (todoText.trim()) {
+            const checked = block.to_do?.checked ? '✅' : '☐';
+            text += `${checked} ${todoText}\n`;
+          }
+          break;
+          
+        case 'toggle':
+          const toggleText = block.toggle?.rich_text?.map(t => t.plain_text).join('') || '';
+          if (toggleText.trim()) {
+            text += `▶ ${toggleText}\n`;
+          }
+          break;
+          
+        case 'callout':
+          const calloutText = block.callout?.rich_text?.map(t => t.plain_text).join('') || '';
+          if (calloutText.trim()) {
+            const emoji = block.callout?.icon?.emoji || '💡';
+            text += `${emoji} ${calloutText}\n\n`;
+          }
+          break;
+          
+        case 'quote':
+          const quoteText = block.quote?.rich_text?.map(t => t.plain_text).join('') || '';
+          if (quoteText.trim()) {
+            text += `> ${quoteText}\n\n`;
+          }
+          break;
+          
+        case 'code':
+          const codeText = block.code?.rich_text?.map(t => t.plain_text).join('') || '';
+          if (codeText.trim()) {
+            const language = block.code?.language || 'text';
+            text += `\`\`\`${language}\n${codeText}\n\`\`\`\n\n`;
+          }
+          break;
+          
+        default:
+          if (block[block.type]?.rich_text) {
+            const genericText = block[block.type].rich_text.map(t => t.plain_text).join('') || '';
+            if (genericText.trim()) {
+              text += genericText + '\n';
+            }
+          }
+          break;
+      }
+    } catch (error) {
+      console.warn(`Error extracting text from block type ${block.type}:`, error);
+    }
+  }
+  
+  return text.trim();
+}
+
+/**
+ * Format and send message via Telegram (Enhanced version)
+ */
+async function sendTelegramMessage(chatId, summary) {
   const botToken = process.env.VITE_TELEGRAM_BOT_TOKEN;
   
   console.log(`Telegram: Attempting to send message to chat ${chatId}`);
@@ -263,17 +472,18 @@ async function sendTelegramMessage(chatId, message) {
     throw new Error('Telegram bot token not configured');
   }
 
-  // Validate chat ID
   if (!chatId || typeof chatId !== 'string' || chatId.trim().length === 0) {
     throw new Error('Invalid chat ID provided');
   }
 
-  // Ensure message is not empty and within limits
-  if (!message || typeof message !== 'string' || message.trim().length === 0) {
+  if (!summary || typeof summary !== 'string' || summary.trim().length === 0) {
     throw new Error('Message text is required');
   }
 
-  const truncatedMessage = message.length > 4096 ? message.substring(0, 4090) + '...' : message;
+  // Format message like the frontend does
+  const formattedMessage = formatSummaryForTelegram(summary);
+  const truncatedMessage = formattedMessage.length > 4096 ? 
+    formattedMessage.substring(0, 4090) + '...' : formattedMessage;
 
   try {
     const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
@@ -284,7 +494,8 @@ async function sendTelegramMessage(chatId, message) {
       body: JSON.stringify({
         chat_id: chatId.trim(),
         text: truncatedMessage,
-        parse_mode: 'HTML'
+        parse_mode: 'HTML',
+        disable_web_page_preview: true
       })
     });
 
@@ -304,6 +515,47 @@ async function sendTelegramMessage(chatId, message) {
     console.error('Telegram: Network error:', fetchError);
     throw new Error(`Telegram network error: ${fetchError.message}`);
   }
+}
+
+/**
+ * Format summary for Telegram with proper HTML escaping and structure
+ */
+function formatSummaryForTelegram(summary) {
+  const escapeHtml = (text) => {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  };
+
+  let message = `🧠 <b>Nemory AI Summary</b>\n\n`;
+  
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-US', { 
+    weekday: 'long', 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
+  const timeStr = now.toLocaleTimeString('en-US', { 
+    hour: '2-digit', 
+    minute: '2-digit',
+    timeZoneName: 'short'
+  });
+  
+  message += `📅 <b>Generated:</b> ${dateStr}\n`;
+  message += `⏰ <b>Time:</b> ${timeStr}\n\n`;
+  
+  const escapedSummary = escapeHtml(summary);
+  message += `📝 <b>Summary:</b>\n${escapedSummary}\n\n`;
+  
+  message += `---\n`;
+  message += `Generated by Nemory AI 🚀\n`;
+  message += `<i>Manual execution via dashboard</i>`;
+  
+  return message;
 }
 
 export default async function handler(req, res) {
