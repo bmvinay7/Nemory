@@ -28,10 +28,16 @@ class TelegramClientService {
   constructor() {
     // Validate bot token from environment
     this.botToken = import.meta.env.VITE_TELEGRAM_BOT_TOKEN || '';
-    if (this.botToken && !this.botToken.match(/^\d+:[A-Za-z0-9_-]{35}$/)) {
+    
+    // Skip validation for placeholder values
+    if (this.botToken && (this.botToken.includes('your-') || this.botToken === '123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi')) {
+      console.warn('Telegram bot token is a placeholder - Telegram features will be disabled');
+      this.botToken = '';
+    } else if (this.botToken && !this.botToken.match(/^\d+:[A-Za-z0-9_-]{35}$/)) {
       console.error('Invalid Telegram bot token format');
       this.botToken = '';
     }
+    
     this.baseUrl = `https://api.telegram.org/bot${this.botToken}`;
   }
 
@@ -137,6 +143,7 @@ class TelegramClientService {
   async sendMessage(chatId: string, text: string): Promise<TelegramDeliveryResult> {
     try {
       if (!this.botToken) {
+        console.error('Telegram: Bot token not configured');
         return {
           success: false,
           error: 'Telegram bot token not configured'
@@ -145,6 +152,7 @@ class TelegramClientService {
 
       const validation = this.validateChatId(chatId);
       if (!validation.isValid) {
+        console.error('Telegram: Invalid chat ID:', validation.error);
         return {
           success: false,
           error: validation.error
@@ -153,6 +161,7 @@ class TelegramClientService {
 
       // Validate message text
       if (!text || typeof text !== 'string' || text.trim().length === 0) {
+        console.error('Telegram: Empty message text');
         return {
           success: false,
           error: 'Message text is required'
@@ -161,6 +170,8 @@ class TelegramClientService {
 
       // Limit message length
       const truncatedText = text.length > 4096 ? text.substring(0, 4090) + '...' : text;
+
+      console.log(`Telegram: Sending message to chat ${chatId} (${truncatedText.length} chars)`);
 
       const response = await fetch(`${this.baseUrl}/sendMessage`, {
         method: 'POST',
@@ -177,14 +188,16 @@ class TelegramClientService {
       const result = await response.json();
 
       if (response.ok && result.ok) {
+        console.log(`Telegram: Message sent successfully, ID: ${result.result.message_id}`);
         return {
           success: true,
           messageId: result.result.message_id,
         };
       } else {
+        console.error('Telegram: API error:', result);
         return {
           success: false,
-          error: result.description || 'Failed to send Telegram message',
+          error: result.description || `HTTP ${response.status}: Failed to send message`,
         };
       }
 

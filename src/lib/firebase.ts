@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, enableNetwork, disableNetwork, initializeFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getFirestore, enableNetwork, disableNetwork, connectFirestoreEmulator } from 'firebase/firestore';
 import { getAnalytics } from 'firebase/analytics';
 import './firebase-diagnostics';
 
@@ -30,14 +30,20 @@ const validateFirebaseConfig = () => {
     throw new Error(`Firebase configuration incomplete. Missing: ${missingFields.join(', ')}`);
   }
   
-  // Validate API key format
-  if (firebaseConfig.apiKey && !firebaseConfig.apiKey.startsWith('AIza')) {
-    throw new Error('Invalid Firebase API key format');
+  // Validate API key format (allow placeholder values in development)
+  if (firebaseConfig.apiKey && 
+      !firebaseConfig.apiKey.startsWith('AIza') && 
+      !firebaseConfig.apiKey.includes('your-') && 
+      !firebaseConfig.apiKey.includes('Placeholder')) {
+    console.warn('Firebase API key format may be invalid');
   }
   
-  // Validate project ID format
-  if (firebaseConfig.projectId && !/^[a-z0-9-]+$/.test(firebaseConfig.projectId)) {
-    throw new Error('Invalid Firebase project ID format');
+  // Validate project ID format (allow placeholder values in development)
+  if (firebaseConfig.projectId && 
+      !/^[a-z0-9-]+$/.test(firebaseConfig.projectId) && 
+      !firebaseConfig.projectId.includes('your') && 
+      !firebaseConfig.projectId.includes('placeholder')) {
+    throw new Error('Invalid Firebase project ID format - must contain only lowercase letters, numbers, and hyphens');
   }
   
   if (import.meta.env.DEV) {
@@ -54,25 +60,46 @@ const validateFirebaseConfig = () => {
   }
 };
 
-// Validate configuration before initializing
-validateFirebaseConfig();
+// Skip Firebase initialization in offline mode
+if (import.meta.env.VITE_OFFLINE_MODE === 'true') {
+  console.log('🔧 Running in offline mode - Firebase disabled');
+} else {
+  validateFirebaseConfig();
+}
 
-// Initialize Firebase
+// Initialize Firebase (will use placeholder config in offline mode)
 const app = initializeApp(firebaseConfig);
 
 // Initialize Firebase Authentication and get a reference to the service
 export const auth = getAuth(app);
 
+// Connect to Auth emulator in development if enabled
+if (import.meta.env.DEV && import.meta.env.VITE_USE_AUTH_EMULATOR === 'true') {
+  try {
+    if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+      const { connectAuthEmulator } = await import('firebase/auth');
+      if (!auth.config.emulator) {
+        connectAuthEmulator(auth, 'http://localhost:9099');
+        console.log('Firebase: Connected to Auth emulator');
+      }
+    }
+  } catch (error) {
+    console.log('Firebase: Auth emulator connection failed, using production Auth');
+  }
+}
+
 // Initialize Cloud Firestore - use standard getFirestore for better compatibility
 export const db = getFirestore(app);
 
-// Connect to emulator if specified (disabled by default for production stability)
+// Connect to emulators only in development when explicitly enabled
 if (import.meta.env.DEV && import.meta.env.VITE_USE_FIRESTORE_EMULATOR === 'true') {
   try {
-    // Only connect to emulator if it's explicitly enabled and running
     if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-      connectFirestoreEmulator(db, 'localhost', 8080);
-      console.log('Firebase: Connected to Firestore emulator');
+      // Check if emulator is already connected
+      if (!(db as any)._delegate._databaseId.projectId.includes('demo-')) {
+        connectFirestoreEmulator(db, 'localhost', 8080);
+        console.log('Firebase: Connected to Firestore emulator');
+      }
     }
   } catch (error) {
     console.log('Firebase: Firestore emulator connection failed, using production Firestore');

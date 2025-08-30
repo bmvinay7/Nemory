@@ -20,10 +20,10 @@ service cloud.firestore {
              isValidUserId(request.resource.data.userId);
     }
     
-    // Rate limiting helper (basic)
-    function isWithinRateLimit() {
-      return request.time > resource.data.lastUpdated + duration.value(1, 's');
-    }
+    // Rate limiting helper (basic) - currently unused but available for future use
+    // function isWithinRateLimit() {
+    //   return request.time > resource.data.lastUpdated + duration.value(1, 's');
+    // }
 
     // Allow authenticated users to read/write their own notion integration data
     match /notion_integrations/{userId} {

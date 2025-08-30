@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Worker Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Service Worker Diagnostic Tool</h1>
+    
+    <div id="status"></div>
+    
+    <button onclick="checkServiceWorkers()">Check Service Workers</button>
+    <button onclick="clearAll()">Clear All Service Workers & Caches</button>
+    <button onclick="testFetch()">Test Fetch</button>
+    
+    <div id="results"></div>
+    
+    <script>
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.innerHTML = message;
+            document.getElementById('results').appendChild(div);
+            console.log(message);
+        }
+        
+        async function checkServiceWorkers() {
+            document.getElementById('results').innerHTML = '';
+            log('🔍 Checking service workers...');
+            
+            if ('serviceWorker' in navigator) {
+                try {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    if (registrations.length === 0) {
+                        log('✅ No service workers found', 'success');
+                    } else {
+                        log(`❌ Found ${registrations.length} service workers:`, 'error');
+                        registrations.forEach((reg, i) => {
+                            log(`   ${i + 1}. ${reg.scope}`, 'error');
+                        });
+                    }
+                    
+                    if (navigator.serviceWorker.controller) {
+                        log('❌ Active service worker controlling this page', 'error');
+                    } else {
+                        log('✅ No active service worker', 'success');
+                    }
+                } catch (error) {
+                    log(`❌ Error checking service workers: ${error.message}`, 'error');
+                }
+            } else {
+                log('❌ Service Worker API not supported', 'error');
+            }
+            
+            // Check caches
+            if ('caches' in window) {
+                try {
+                    const cacheNames = await caches.keys();
+                    if (cacheNames.length === 0) {
+                        log('✅ No caches found', 'success');
+                    } else {
+                        log(`⚠️ Found ${cacheNames.length} caches:`, 'warning');
+                        cacheNames.forEach((name, i) => {
+                            log(`   ${i + 1}. ${name}`, 'warning');
+                        });
+                    }
+                } catch (error) {
+                    log(`❌ Error checking caches: ${error.message}`, 'error');
+                }
+            }
+        }
+        
+        async function clearAll() {
+            log('🧹 Clearing all service workers and caches...');
+            
+            // Clear service workers
+            if ('serviceWorker' in navigator) {
+                try {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (const registration of registrations) {
+                        await registration.unregister();
+                        log(`✅ Unregistered: ${registration.scope}`, 'success');
+                    }
+                } catch (error) {
+                    log(`❌ Error clearing service workers: ${error.message}`, 'error');
+                }
+            }
+            
+            // Clear caches
+            if ('caches' in window) {
+                try {
+                    const cacheNames = await caches.keys();
+                    for (const cacheName of cacheNames) {
+                        await caches.delete(cacheName);
+                        log(`✅ Deleted cache: ${cacheName}`, 'success');
+                    }
+                } catch (error) {
+                    log(`❌ Error clearing caches: ${error.message}`, 'error');
+                }
+            }
+            
+            // Clear storage
+            try {
+                localStorage.clear();
+                sessionStorage.clear();
+                log('✅ Cleared local storage', 'success');
+            } catch (error) {
+                log(`❌ Error clearing storage: ${error.message}`, 'error');
+            }
+            
+            log('🎉 Cleanup complete! Reloading in 2 seconds...', 'success');
+            setTimeout(() => location.reload(), 2000);
+        }
+        
+        async function testFetch() {
+            log('🧪 Testing fetch requests...');
+            
+            try {
+                const response = await fetch('/@vite/client');
+                if (response.ok) {
+                    log('✅ Vite client fetch successful', 'success');
+                } else {
+                    log(`❌ Vite client fetch failed: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Vite client fetch error: ${error.message}`, 'error');
+            }
+            
+            try {
+                const response = await fetch('/@react-refresh');
+                if (response.ok) {
+                    log('✅ React refresh fetch successful', 'success');
+                } else {
+                    log(`❌ React refresh fetch failed: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ React refresh fetch error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Auto-check on load
+        window.addEventListener('load', checkServiceWorkers);
+    </script>
+</body>
+</html>

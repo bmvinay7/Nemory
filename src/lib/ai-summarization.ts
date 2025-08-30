@@ -2,15 +2,15 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { summaryStorageService } from './summary-storage';
 
 // Initialize Gemini client with validation
-const API_KEY = import.meta.env.VITE_GOOGLE_AI_API_KEY;
+const API_KEY = import.meta.env.VITE_GOOGLE_AI_API_KEY || import.meta.env.VITE_GOOGLE_GEMINI_API_KEY;
 if (!API_KEY) {
   if (import.meta.env.DEV) {
-    console.error('❌ VITE_GOOGLE_AI_API_KEY is not set in environment variables');
-    console.error('   Please add your Google AI API key to your .env file');
-    console.error('   Get your API key from: https://makersuite.google.com/app/apikey');
+    console.warn('⚠️ Google AI API key not configured - AI features will be disabled');
   }
 } else if (API_KEY.length < 20 || !API_KEY.startsWith('AI')) {
-  console.error('❌ Invalid Google AI API key format');
+  if (import.meta.env.DEV) {
+    console.warn('⚠️ Invalid Google AI API key format - AI features may not work properly');
+  }
 }
 
 const genAI = new GoogleGenerativeAI(API_KEY || '');
@@ -96,11 +96,7 @@ export class AISummarizationService {
   constructor() {
     if (!API_KEY) {
       if (import.meta.env.DEV) {
-        console.error('❌ Google AI API key not found. AI features will be disabled.');
-        console.error('   To enable AI summarization:');
-        console.error('   1. Get an API key from: https://makersuite.google.com/app/apikey');
-        console.error('   2. Add VITE_GOOGLE_AI_API_KEY=your_key_here to your .env file');
-        console.error('   3. Restart your development server');
+        console.warn('⚠️ Google AI API key not configured - AI features will be disabled');
       }
     } else {
       if (import.meta.env.DEV) {

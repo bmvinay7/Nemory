@@ -28,6 +28,33 @@ export interface NotionTokenResponse {
   };
 }
 
+export interface NotionRichText {
+  type: 'text' | 'mention' | 'equation';
+  text?: {
+    content: string;
+    link?: {
+      url: string;
+    } | null;
+  };
+  mention?: {
+    type: string;
+    [key: string]: any;
+  };
+  equation?: {
+    expression: string;
+  };
+  annotations: {
+    bold: boolean;
+    italic: boolean;
+    strikethrough: boolean;
+    underline: boolean;
+    code: boolean;
+    color: string;
+  };
+  plain_text: string;
+  href?: string | null;
+}
+
 export class NotionOAuthService {
   private config: NotionOAuthConfig;
 
@@ -243,49 +270,50 @@ export class NotionOAuthService {
     for (const block of blocks) {
       switch (block.type) {
         case 'paragraph':
-          text += this.extractRichText(block.paragraph?.rich_text || []) + '\n\n';
+          text += this.extractRichText((block.paragraph?.rich_text as NotionRichText[]) || []) + '\n\n';
           break;
         case 'heading_1':
-          text += '# ' + this.extractRichText(block.heading_1?.rich_text || []) + '\n\n';
+          text += '# ' + this.extractRichText((block.heading_1?.rich_text as NotionRichText[]) || []) + '\n\n';
           break;
         case 'heading_2':
-          text += '## ' + this.extractRichText(block.heading_2?.rich_text || []) + '\n\n';
+          text += '## ' + this.extractRichText((block.heading_2?.rich_text as NotionRichText[]) || []) + '\n\n';
           break;
         case 'heading_3':
-          text += '### ' + this.extractRichText(block.heading_3?.rich_text || []) + '\n\n';
+          text += '### ' + this.extractRichText((block.heading_3?.rich_text as NotionRichText[]) || []) + '\n\n';
           break;
         case 'bulleted_list_item':
-          text += '• ' + this.extractRichText(block.bulleted_list_item?.rich_text || []) + '\n';
+          text += '• ' + this.extractRichText((block.bulleted_list_item?.rich_text as NotionRichText[]) || []) + '\n';
           break;
         case 'numbered_list_item':
-          text += '1. ' + this.extractRichText(block.numbered_list_item?.rich_text || []) + '\n';
+          text += '1. ' + this.extractRichText((block.numbered_list_item?.rich_text as NotionRichText[]) || []) + '\n';
           break;
         case 'to_do': {
           const checked = block.to_do?.checked ? '[x]' : '[ ]';
-          text += `${checked} ${this.extractRichText(block.to_do?.rich_text || [])}\n`;
+          text += `${checked} ${this.extractRichText((block.to_do?.rich_text as NotionRichText[]) || [])}\n`;
           break;
         }
         case 'quote':
-          text += '> ' + this.extractRichText(block.quote?.rich_text || []) + '\n\n';
+          text += '> ' + this.extractRichText((block.quote?.rich_text as NotionRichText[]) || []) + '\n\n';
           break;
         case 'callout':
-          text += '📝 ' + this.extractRichText(block.callout?.rich_text || []) + '\n\n';
+          text += '📝 ' + this.extractRichText((block.callout?.rich_text as NotionRichText[]) || []) + '\n\n';
           break;
         case 'code':
-          text += '```\n' + this.extractRichText(block.code?.rich_text || []) + '\n```\n\n';
+          text += '```\n' + this.extractRichText((block.code?.rich_text as NotionRichText[]) || []) + '\n```\n\n';
           break;
         case 'divider':
           text += '---\n\n';
           break;
-        case 'toggle':
+        case 'toggle': {
           // Handle toggle blocks (collapsible content)
-          const toggleTitle = this.extractRichText(block.toggle?.rich_text || []);
+          const toggleTitle = this.extractRichText((block.toggle?.rich_text as NotionRichText[]) || []);
           text += `🔽 ${toggleTitle}\n`;
           // Get children blocks if they exist
           if (block.has_children) {
             text += '  [Toggle content available - needs expansion]\n\n';
           }
           break;
+        }
       }
     }
     
@@ -628,7 +656,7 @@ export class NotionOAuthService {
       totalTextLength += blockText.length;
       
       switch (block.type) {
-        case 'toggle':
+        case 'toggle': {
           analysis.toggleCount++;
           if (block.has_children) {
             analysis.togglesWithChildren++;
@@ -639,6 +667,7 @@ export class NotionOAuthService {
             analysis.hasNestedToggles = true;
           }
           break;
+        }
           
         case 'heading_1':
           analysis.headingCount++;
@@ -907,7 +936,7 @@ export class NotionOAuthService {
           analysis.codeBlockCount++;
           break;
         case 'paragraph': {
-          const text = this.extractRichText(block.paragraph?.rich_text || []);
+          const text = this.extractRichText(block.paragraph?.rich_text as NotionRichText[]) || [];
           totalTextLength += text.length;
           break;
         }
@@ -958,7 +987,7 @@ export class NotionOAuthService {
     
     for (const block of blocks) {
       if (block.type === 'toggle') {
-        const toggleTitle = this.extractRichText(block.toggle?.rich_text || []);
+        const toggleTitle = this.extractRichText(block.toggle?.rich_text as NotionRichText[]) || '';
         
         if (!toggleTitle.trim() || toggleTitle.trim().length < 2) {
           console.log(`  ❌ Skipping toggle with empty/short title: "${toggleTitle}"`);
@@ -1156,7 +1185,7 @@ export class NotionOAuthService {
 
   // Extract individual video toggle with its content
   private async extractVideoToggle(nestedToggle: any, accessToken: string, pageTitle: string, categoryTitle: string): Promise<any | null> {
-    const videoTitle = this.extractRichText(nestedToggle.toggle?.rich_text || []);
+    const videoTitle = this.extractRichText(nestedToggle.toggle?.rich_text as NotionRichText[]) || '';
     
     if (!videoTitle.trim()) {
       console.log(`    ❌ Skipping nested toggle with empty title`);
@@ -1391,7 +1420,7 @@ ${specificContent}
     for (const block of blocks) {
       if (block.type === 'toggle') {
         try {
-          const toggleTitle = this.extractRichText(block.toggle?.rich_text || []);
+          const toggleTitle = this.extractRichText(block.toggle?.rich_text as NotionRichText[]) || '';
           
           if (!toggleTitle.trim() || toggleTitle.trim().length < 2) {
             console.log(`  ❌ Skipping toggle with empty/short title: "${toggleTitle}"`);
@@ -1517,7 +1546,7 @@ ${specificContent}
           
           // Emergency fallback: try to create a minimal toggle item
           try {
-            const emergencyTitle = this.extractRichText(block.toggle?.rich_text || []);
+            const emergencyTitle = this.extractRichText(block.toggle?.rich_text as NotionRichText[]) || '';
             if (emergencyTitle && emergencyTitle.trim().length > 2) {
               const emergencyItem = {
                 id: `${block.id}_toggle_emergency`,
@@ -1571,7 +1600,7 @@ ${specificContent}
     
     for (const block of blocks) {
       if (block.type === 'toggle') {
-        const toggleTitle = this.extractRichText(block.toggle?.rich_text || []);
+        const toggleTitle = this.extractRichText(block.toggle?.rich_text as NotionRichText[]) || '';
         
         if (!toggleTitle.trim() || toggleTitle.trim().length < 2) {
           continue;
@@ -1669,7 +1698,7 @@ ${specificContent}
         }
         
         // Start new section
-        const headingText = this.extractRichText(block[block.type]?.rich_text || []);
+        const headingText = this.extractRichText(block[block.type]?.rich_text as NotionRichText[]) || '';
         currentSection = {
           title: headingText,
           level: block.type,
@@ -1808,8 +1837,8 @@ ${specificContent}
   }
 
   // Extract individual list items
-  private extractIndividualListItems(blocks: any[], pageTitle: string, pageId: string, lastEdited: string, url: string): any[] {
-    const items = [];
+  private extractIndividualListItems(blocks: NotionBlock[], pageTitle: string, pageId: string, lastEdited: string, url: string): ContentItem[] {
+    const items: ContentItem[] = [];
     
     console.log(`📋 Extracting individual list items from ${blocks.length} blocks...`);
     
@@ -2051,7 +2080,7 @@ ${specificContent}
       // Handle different block types
       switch (block.type) {
         case 'paragraph': {
-          const paragraphText = this.extractRichText(block.paragraph?.rich_text || []);
+          const paragraphText = this.extractRichText(block.paragraph?.rich_text as NotionRichText[]) || '';
           if (paragraphText.trim()) {
             content += paragraphText + '\n\n';
           }
@@ -2059,7 +2088,7 @@ ${specificContent}
         }
           
         case 'heading_1': {
-          const h1Text = this.extractRichText(block.heading_1?.rich_text || []);
+          const h1Text = this.extractRichText(block.heading_1?.rich_text as NotionRichText[]) || '';
           if (h1Text.trim()) {
             content += '# ' + h1Text + '\n\n';
           }
@@ -2067,7 +2096,7 @@ ${specificContent}
         }
           
         case 'heading_2': {
-          const h2Text = this.extractRichText(block.heading_2?.rich_text || []);
+          const h2Text = this.extractRichText(block.heading_2?.rich_text as NotionRichText[]) || '';
           if (h2Text.trim()) {
             content += '## ' + h2Text + '\n\n';
           }
@@ -2075,7 +2104,7 @@ ${specificContent}
         }
           
         case 'heading_3': {
-          const h3Text = this.extractRichText(block.heading_3?.rich_text || []);
+          const h3Text = this.extractRichText(block.heading_3?.rich_text as NotionRichText[]) || '';
           if (h3Text.trim()) {
             content += '### ' + h3Text + '\n\n';
           }
@@ -2083,7 +2112,7 @@ ${specificContent}
         }
           
         case 'bulleted_list_item': {
-          const bulletText = this.extractRichText(block.bulleted_list_item?.rich_text || []);
+          const bulletText = this.extractRichText(block.bulleted_list_item?.rich_text as NotionRichText[]) || '';
           if (bulletText.trim()) {
             content += '• ' + bulletText + '\n';
           }
@@ -2091,7 +2120,7 @@ ${specificContent}
         }
           
         case 'numbered_list_item': {
-          const numberedText = this.extractRichText(block.numbered_list_item?.rich_text || []);
+          const numberedText = this.extractRichText(block.numbered_list_item?.rich_text as NotionRichText[]) || '';
           if (numberedText.trim()) {
             content += '1. ' + numberedText + '\n';
           }
@@ -2099,7 +2128,7 @@ ${specificContent}
         }
           
         case 'to_do': {
-          const todoText = this.extractRichText(block.to_do?.rich_text || []);
+          const todoText = this.extractRichText(block.to_do?.rich_text as NotionRichText[]) || '';
           if (todoText.trim()) {
             const checked = block.to_do?.checked ? '[x]' : '[ ]';
             content += `${checked} ${todoText}\n`;
@@ -2108,7 +2137,7 @@ ${specificContent}
         }
           
         case 'quote': {
-          const quoteText = this.extractRichText(block.quote?.rich_text || []);
+          const quoteText = this.extractRichText(block.quote?.rich_text as NotionRichText[]) || '';
           if (quoteText.trim()) {
             content += '> ' + quoteText + '\n\n';
           }
@@ -2116,7 +2145,7 @@ ${specificContent}
         }
           
         case 'callout': {
-          const calloutText = this.extractRichText(block.callout?.rich_text || []);
+          const calloutText = this.extractRichText(block.callout?.rich_text as NotionRichText[]) || '';
           if (calloutText.trim()) {
             content += '📝 ' + calloutText + '\n\n';
           }
@@ -2124,16 +2153,16 @@ ${specificContent}
         }
           
         case 'code': {
-          const codeText = this.extractRichText(block.code?.rich_text || []);
+          const codeText = this.extractRichText(block.code?.rich_text as NotionRichText[]) || '';
           if (codeText.trim()) {
             content += '```\n' + codeText + '\n```\n\n';
           }
           break;
         }
           
-        case 'toggle':
+        case 'toggle': {
           // ENHANCED: Handle hierarchical nested toggles with proper depth tracking
-          const nestedToggleTitle = this.extractRichText(block.toggle?.rich_text || []);
+          const nestedToggleTitle = this.extractRichText(block.toggle?.rich_text as NotionRichText[]) || '';
           if (nestedToggleTitle.trim()) {
             try {
               const indentation = '  '.repeat(depth);
@@ -2201,6 +2230,7 @@ ${specificContent}
             }
           }
           break;
+        }
           
         case 'divider':
           content += '---\n\n';
@@ -2256,7 +2286,7 @@ ${specificContent}
     for (const block of blocks) {
       if (block.type === 'toggle') {
         try {
-          const toggleTitle = this.extractRichText(block.toggle?.rich_text || []);
+          const toggleTitle = this.extractRichText(block.toggle?.rich_text as NotionRichText[]) || '';
           
           if (!toggleTitle.trim()) {
             console.log('  ❌ Skipping toggle with empty title');
@@ -2444,7 +2474,7 @@ ${specificContent}
         }
         
         // Start new section
-        const headingText = this.extractRichText(block[block.type]?.rich_text || []);
+        const headingText = this.extractRichText(block[block.type]?.rich_text as NotionRichText[]) || '';
         currentSection = { heading: headingText, content: '', blocks: [] };
       } else {
         // Add content to current section
@@ -2483,7 +2513,7 @@ ${specificContent}
       const block = blocks[i];
       
       if (['bulleted_list_item', 'numbered_list_item', 'to_do'].includes(block.type)) {
-        const itemText = this.extractRichText(block[block.type]?.rich_text || []);
+        const itemText = this.extractRichText(block[block.type]?.rich_text as NotionRichText[]) || '';
         
         if (itemText.trim().length > 20) { // Minimum meaningful content
           listItems.push({
@@ -2512,7 +2542,7 @@ ${specificContent}
     
     for (const block of blocks) {
       if (['callout', 'quote'].includes(block.type)) {
-        const highlightText = this.extractRichText(block[block.type]?.rich_text || []);
+        const highlightText = this.extractRichText(block[block.type]?.rich_text as NotionRichText[]) || '';
         
         if (highlightText.trim().length > 30) {
           highlights.push({

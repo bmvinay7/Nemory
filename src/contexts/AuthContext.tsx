@@ -105,6 +105,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    // Skip Firebase auth in offline mode
+    if (import.meta.env.VITE_OFFLINE_MODE === 'true') {
+      console.log('🔧 Offline mode: Skipping Firebase Auth');
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       setLoading(false);

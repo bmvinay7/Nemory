@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:clean": "rm -rf dist node_modules/.vite && npm run dev -- --force",
+    "dev:fix": "node fix-pwa-errors.js && npm run dev -- --port 3000",
     "dev:with-bot": "concurrently \"npm run dev\" \"npm run bot:dev\"",
     "build": "tsc && vite build",
     "build:dev": "vite build --mode development",
@@ -33,7 +35,8 @@
     "debug:ai": "node debug-ai-summary.js",
     "debug:firestore": "node debug-firestore.js",
     "test:cron": "node test-cron-functionality.js",
-    "test:cron:status": "curl -X GET http://localhost:3000/api/cron-status"
+    "test:cron:status": "curl -X GET http://localhost:3000/api/cron-status",
+    "test:telegram": "node test-telegram-delivery.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",

@@ -42,6 +42,12 @@ class EnvironmentValidator {
       return;
     }
 
+    // Skip validation for placeholder values
+    if (apiKey.includes('your-') || apiKey.includes('Placeholder') || apiKey.includes('placeholder')) {
+      this.warnings.push('Google AI API key needs to be configured with actual value');
+      return;
+    }
+
     if (typeof apiKey !== 'string' || apiKey.length < 20) {
       this.errors.push('Invalid Google AI API key format');
       return;
@@ -64,6 +70,12 @@ class EnvironmentValidator {
       return;
     }
 
+    // Skip validation for placeholder values
+    if (botToken.includes('your-') || botToken.includes('placeholder') || botToken.includes('YOUR_BOT_TOKEN') || botToken === '123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi') {
+      this.warnings.push('Telegram bot token needs to be configured with actual value');
+      return;
+    }
+
     if (typeof botToken !== 'string') {
       this.errors.push('Invalid Telegram bot token type');
       return;
@@ -72,12 +84,7 @@ class EnvironmentValidator {
     // Telegram bot token format: {bot_id}:{bot_token}
     const tokenPattern = /^\d{8,10}:[A-Za-z0-9_-]{35}$/;
     if (!tokenPattern.test(botToken)) {
-      this.errors.push('Invalid Telegram bot token format');
-    }
-
-    // Check for common test/placeholder tokens
-    if (botToken.includes('YOUR_BOT_TOKEN') || botToken.includes('test') || botToken.includes('example')) {
-      this.errors.push('Telegram bot token appears to be a placeholder');
+      this.errors.push('Invalid Telegram bot token format - should be like "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi"');
     }
   }
 
@@ -100,19 +107,19 @@ class EnvironmentValidator {
 
     // Validate Firebase API key format
     const apiKey = this.config.VITE_FIREBASE_API_KEY;
-    if (apiKey && !apiKey.startsWith('AIza')) {
+    if (apiKey && !apiKey.startsWith('AIza') && !apiKey.includes('your-') && !apiKey.includes('your_')) {
       this.errors.push('Invalid Firebase API key format');
     }
 
     // Validate project ID format
     const projectId = this.config.VITE_FIREBASE_PROJECT_ID;
-    if (projectId && !/^[a-z0-9-]+$/.test(projectId)) {
-      this.errors.push('Invalid Firebase project ID format');
+    if (projectId && !/^[a-z0-9-]+$/.test(projectId) && !projectId.includes('your') && !projectId.includes('placeholder')) {
+      this.errors.push('Invalid Firebase project ID format - must contain only lowercase letters, numbers, and hyphens');
     }
 
     // Validate auth domain
     const authDomain = this.config.VITE_FIREBASE_AUTH_DOMAIN;
-    if (authDomain && !authDomain.endsWith('.firebaseapp.com')) {
+    if (authDomain && !authDomain.endsWith('.firebaseapp.com') && !authDomain.includes('your-') && !authDomain.includes('your_')) {
       this.errors.push('Invalid Firebase auth domain format');
     }
   }
@@ -127,9 +134,15 @@ class EnvironmentValidator {
       return;
     }
 
+    // Skip validation for placeholder values
+    if (clientId.includes('your-') || clientId.includes('placeholder') || clientId === '12345678-1234-1234-1234-123456789abc') {
+      this.warnings.push('Notion client ID needs to be configured with actual value');
+      return;
+    }
+
     // Validate client ID format (UUID-like)
     if (!/^[a-f0-9-]{36}$/.test(clientId)) {
-      this.errors.push('Invalid Notion client ID format');
+      this.errors.push('Invalid Notion client ID format - should be a UUID like "12345678-1234-1234-1234-123456789abc"');
     }
 
     // Validate redirect URI format
@@ -166,10 +179,22 @@ class EnvironmentValidator {
     }
 
     // Check for empty or placeholder values
+    const placeholderPatterns = [
+      'your-', 'your_', 'YOUR_', 'placeholder', 'Placeholder',
+      'AIzaSyPlaceholder', '12345678-1234-1234-1234-123456789abc',
+      '123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi',
+      'secret_placeholder', 'G-PLACEHOLDER'
+    ];
+    
     Object.entries(this.config).forEach(([key, value]) => {
       if (typeof value === 'string') {
-        if (value.includes('your_') || value.includes('YOUR_') || value.includes('placeholder')) {
-          this.errors.push(`${key} appears to be a placeholder value`);
+        const isPlaceholder = placeholderPatterns.some(pattern => value.includes(pattern));
+        if (isPlaceholder) {
+          if (import.meta.env.PROD) {
+            this.errors.push(`${key} appears to be a placeholder value`);
+          } else {
+            this.warnings.push(`${key} needs to be configured with actual values`);
+          }
         }
       }
     });

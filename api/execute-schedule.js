@@ -251,32 +251,59 @@ async function generateGeminiSummary(content, summaryConfig) {
 }
 
 /**
- * Send message via Telegram
+ * Send message via Telegram with improved error handling
  */
 async function sendTelegramMessage(chatId, message) {
   const botToken = process.env.VITE_TELEGRAM_BOT_TOKEN;
+  
+  console.log(`Telegram: Attempting to send message to chat ${chatId}`);
+  console.log(`Telegram: Bot token configured: ${!!botToken}`);
+  
   if (!botToken) {
     throw new Error('Telegram bot token not configured');
   }
 
-  const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: message,
-      parse_mode: 'Markdown'
-    })
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(`Telegram API error: ${errorData.description || response.status}`);
+  // Validate chat ID
+  if (!chatId || typeof chatId !== 'string' || chatId.trim().length === 0) {
+    throw new Error('Invalid chat ID provided');
   }
 
-  return response.json();
+  // Ensure message is not empty and within limits
+  if (!message || typeof message !== 'string' || message.trim().length === 0) {
+    throw new Error('Message text is required');
+  }
+
+  const truncatedMessage = message.length > 4096 ? message.substring(0, 4090) + '...' : message;
+
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        chat_id: chatId.trim(),
+        text: truncatedMessage,
+        parse_mode: 'HTML'
+      })
+    });
+
+    console.log(`Telegram: API response status: ${response.status}`);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ description: 'Unknown error' }));
+      console.error('Telegram: API error response:', errorData);
+      throw new Error(`Telegram API error: ${errorData.description || `HTTP ${response.status}`}`);
+    }
+
+    const result = await response.json();
+    console.log(`Telegram: Message sent successfully, ID: ${result.result?.message_id}`);
+    return result;
+
+  } catch (fetchError) {
+    console.error('Telegram: Network error:', fetchError);
+    throw new Error(`Telegram network error: ${fetchError.message}`);
+  }
 }
 
 export default async function handler(req, res) {

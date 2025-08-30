@@ -46,7 +46,7 @@ const AISummarization: React.FC = () => {
   const [isLoadingPreferences, setIsLoadingPreferences] = useState(true);
   const [activeTab, setActiveTab] = useState('current');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
-  const [isSendingWhatsApp, setIsSendingWhatsApp] = useState(false);
+  const [isSendingTelegram, setIsSendingTelegram] = useState(false);
 
   const loadUserPreferences = useCallback(async () => {
     if (!currentUser) return;
@@ -311,9 +311,24 @@ const AISummarization: React.FC = () => {
   };
 
   const sendSummaryByTelegram = async () => {
-    if (!currentSummary || !currentUser) return;
+    console.log('🔍 Telegram send button clicked');
+    console.log('Current user:', currentUser?.uid);
+    console.log('Current summary:', !!currentSummary);
     
-    setIsSendingWhatsApp(true);
+    if (!currentSummary || !currentUser) {
+      console.error('❌ Missing required data:', { 
+        hasUser: !!currentUser, 
+        hasSummary: !!currentSummary 
+      });
+      toast({
+        title: "Cannot send summary",
+        description: !currentUser ? "Please log in first" : "No summary available to send",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsSendingTelegram(true);
     try {
       // Get user's Telegram preferences
       const { doc, getDoc } = await import('firebase/firestore');
@@ -321,9 +336,11 @@ const AISummarization: React.FC = () => {
       const { telegramClientService } = await import('@/lib/telegram-client');
       
       const prefsRef = doc(db, 'telegramPreferences', currentUser.uid);
+      console.log('📖 Reading Telegram preferences for user:', currentUser.uid);
       const prefsSnap = await getDoc(prefsRef);
       
       if (!prefsSnap.exists()) {
+        console.log('❌ No Telegram preferences found');
         toast({
           title: "Telegram not configured",
           description: "Please set up your Telegram chat ID in Settings first",
@@ -333,6 +350,8 @@ const AISummarization: React.FC = () => {
       }
       
       const preferences = prefsSnap.data();
+      console.log('📋 Telegram preferences:', { hasChatId: !!preferences.chatId });
+      
       if (!preferences.chatId) {
         toast({
           title: "No chat ID",
@@ -343,6 +362,7 @@ const AISummarization: React.FC = () => {
       }
       
       // Send via Telegram
+      console.log('📤 Sending summary via Telegram to chat:', preferences.chatId);
       const result = await telegramClientService.sendSummary({
         chatId: preferences.chatId,
         summary: currentSummary.summary,
@@ -352,6 +372,8 @@ const AISummarization: React.FC = () => {
         readingTime: currentSummary.readingTime,
         createdAt: currentSummary.createdAt,
       });
+      
+      console.log('📨 Telegram send result:', result);
       
       if (result.success) {
         // Increment metrics
@@ -377,7 +399,7 @@ const AISummarization: React.FC = () => {
         variant: "destructive"
       });
     } finally {
-      setIsSendingWhatsApp(false);
+      setIsSendingTelegram(false);
     }
   };
 
@@ -529,11 +551,11 @@ const AISummarization: React.FC = () => {
                     size="sm"
                     variant="default"
                     onClick={sendSummaryByTelegram}
-                    disabled={isSendingWhatsApp}
+                    disabled={isSendingTelegram}
                     className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700"
                   >
-                    <MessageCircle className={`w-4 h-4 ${isSendingWhatsApp ? 'animate-pulse' : ''}`} />
-                    <span>{isSendingWhatsApp ? 'Sending...' : 'Send to Telegram'}</span>
+                    <MessageCircle className={`w-4 h-4 ${isSendingTelegram ? 'animate-pulse' : ''}`} />
+                    <span>{isSendingTelegram ? 'Sending...' : 'Send to Telegram'}</span>
                   </Button>
                   <Button
                     size="sm"

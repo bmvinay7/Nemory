@@ -13,6 +13,10 @@ export default defineConfig(({ mode }) => ({
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      // Prevent service worker caching in development
+      'Cache-Control': mode === 'development' ? 'no-cache, no-store, must-revalidate' : 'public, max-age=31536000',
+      'Pragma': mode === 'development' ? 'no-cache' : '',
+      'Expires': mode === 'development' ? '0' : '',
     },
   },
   build: {

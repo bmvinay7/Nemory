@@ -9,10 +9,19 @@
     <link rel="apple-touch-icon" href="/nlogo.png" />
     <meta name="msapplication-TileImage" content="/nlogo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Aggressive cache prevention for development -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, max-age=0" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- Prevent service worker caching -->
+    <meta name="mobile-web-app-capable" content="no" />
+    <meta name="apple-mobile-web-app-capable" content="no" />
     <title>Nemory – AI Notes to Telegram</title>
     <meta name="description" content="Nemory turns your Notion notes into AI summaries and delivers them instantly to your Telegram so you can recall and act on them." />
     <meta name="author" content="Rezaul Karim Arif" />
     <meta property="og:image" content="/og-image-update.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     
     <!-- Preconnect to external domains for performance -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
