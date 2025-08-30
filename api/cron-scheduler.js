@@ -81,50 +81,47 @@ async function executeSchedule(schedule) {
   };
 
   try {
-    // Declare summaryResult at function scope
-    let summaryResult;
+    // Get user's Notion access token - check notion_integrations first since that's where it's actually stored
+    console.log(`🔍 Looking for Notion integration for user: ${schedule.userId}`);
     
-    // Get user's Notion access token
-    console.log(`🔍 Looking for user: ${schedule.userId} in users collection`);
-    const userDoc = await getDoc(doc(db, 'users', schedule.userId));
+    let notionAccessToken = null;
+    let userData = null;
     
-    if (!userDoc.exists()) {
-      console.log(`❌ User document not found in 'users' collection for userId: ${schedule.userId}`);
-      
-      // Try checking notion_integrations collection as fallback
-      console.log(`🔍 Checking notion_integrations collection...`);
-      const notionDoc = await getDoc(doc(db, 'notion_integrations', schedule.userId));
-      
-      if (!notionDoc.exists()) {
-        console.log(`❌ User not found in notion_integrations either`);
-        throw new Error(`User not found in users or notion_integrations collections: ${schedule.userId}`);
-      }
-      
+    // Primary: Check notion_integrations collection (this is where Notion data is actually stored)
+    console.log(`🔍 Checking notion_integrations collection...`);
+    const notionDoc = await getDoc(doc(db, 'notion_integrations', schedule.userId));
+    
+    if (notionDoc.exists()) {
       console.log(`✅ Found user in notion_integrations collection`);
-      const userData = notionDoc.data();
-      const notionAccessToken = userData.accessToken;
+      userData = notionDoc.data();
+      notionAccessToken = userData.accessToken;
       
       if (!notionAccessToken) {
-        throw new Error('Notion access token not found in notion_integrations');
+        throw new Error('Notion access token not found in notion_integrations collection');
       }
-      
-      // Continue with execution using notion_integrations data
-      summaryResult = await generateAISummary(schedule, notionAccessToken);
-      execution.contentProcessed = summaryResult.contentCount;
-      
     } else {
-      console.log(`✅ Found user in users collection`);
-      const userData = userDoc.data();
-      const notionAccessToken = userData.notionAccessToken;
+      // Fallback: Check users collection (legacy or alternative storage)
+      console.log(`⚠️ User not found in notion_integrations, checking users collection as fallback...`);
+      const userDoc = await getDoc(doc(db, 'users', schedule.userId));
       
-      if (!notionAccessToken) {
-        throw new Error('Notion access token not found in users collection');
+      if (!userDoc.exists()) {
+        throw new Error(`Notion integration not found for user ${schedule.userId}. User may need to reconnect their Notion workspace.`);
       }
       
-      // Continue with execution using users data
-      summaryResult = await generateAISummary(schedule, notionAccessToken);
-      execution.contentProcessed = summaryResult.contentCount;
+      console.log(`✅ Found user in users collection (fallback)`);
+      userData = userDoc.data();
+      notionAccessToken = userData.notionAccessToken;
+      
+      if (!notionAccessToken) {
+        throw new Error(`Notion access token not found for user ${schedule.userId}. User may need to reconnect their Notion workspace.`);
+      }
     }
+    
+    console.log(`🔑 Notion access token found, proceeding with content generation...`);
+    
+    // Generate AI summary with the found access token
+    const summaryResult = await generateAISummary(schedule, notionAccessToken);
+    execution.contentProcessed = summaryResult.contentCount;
 
 
 

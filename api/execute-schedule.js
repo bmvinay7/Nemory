@@ -46,18 +46,43 @@ async function executeSchedule(schedule) {
   };
 
   try {
-    // Get user's Notion access token
-    const userDoc = await getDoc(doc(db, 'users', schedule.userId));
-    if (!userDoc.exists()) {
-      throw new Error('User not found');
-    }
-
-    const userData = userDoc.data();
-    const notionAccessToken = userData.notionAccessToken;
+    // Get user's Notion access token - check notion_integrations first since that's where it's actually stored
+    console.log(`🔍 Looking for Notion integration for user: ${schedule.userId}`);
     
-    if (!notionAccessToken) {
-      throw new Error('Notion access token not found');
+    let notionAccessToken = null;
+    let userData = null;
+    
+    // Primary: Check notion_integrations collection (this is where Notion data is actually stored)
+    console.log(`🔍 Checking notion_integrations collection...`);
+    const notionDoc = await getDoc(doc(db, 'notion_integrations', schedule.userId));
+    
+    if (notionDoc.exists()) {
+      console.log(`✅ Found user in notion_integrations collection`);
+      userData = notionDoc.data();
+      notionAccessToken = userData.accessToken;
+      
+      if (!notionAccessToken) {
+        throw new Error('Notion access token not found in notion_integrations collection');
+      }
+    } else {
+      // Fallback: Check users collection (legacy or alternative storage)
+      console.log(`⚠️ User not found in notion_integrations, checking users collection as fallback...`);
+      const userDoc = await getDoc(doc(db, 'users', schedule.userId));
+      
+      if (!userDoc.exists()) {
+        throw new Error(`Notion integration not found for user ${schedule.userId}. User may need to reconnect their Notion workspace.`);
+      }
+      
+      console.log(`✅ Found user in users collection (fallback)`);
+      userData = userDoc.data();
+      notionAccessToken = userData.notionAccessToken;
+      
+      if (!notionAccessToken) {
+        throw new Error(`Notion access token not found for user ${schedule.userId}. User may need to reconnect their Notion workspace.`);
+      }
     }
+    
+    console.log(`🔑 Notion access token found, proceeding with manual execution...`);
 
     // Generate AI summary
     const summaryResult = await generateAISummary(schedule, notionAccessToken);
